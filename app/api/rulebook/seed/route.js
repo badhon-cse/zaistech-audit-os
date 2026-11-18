@@ -19,12 +19,17 @@ export async function POST() {
     return Response.json({ error: "Could not read db/rulebook.md: " + e.message }, { status: 500 });
   }
 
-  // Append the CRO/email/ads research knowledge base (benchmarks + "real vs
-  // filler" guidance per rulebook section) so the findings-writer AI has real,
-  // sourced numbers to judge and back findings with, not just the checklist.
-  // Optional -- if the file isn't there yet, seed with just the rulebook.
+  // Append the CONDENSED CRO/email/ads benchmark cheat-sheet (~3.3KB) so the
+  // findings-writer AI has real, sourced numbers to ground findings in --
+  // not the full db/cro_knowledge_base.md (~16.8KB), which has the same
+  // numbers plus a lot of per-section explanatory prose that's useful for a
+  // human reading it once but not worth re-sending on every single audit
+  // call (it was adding ~4,200 tokens per run for content the condensed
+  // version covers in ~830 tokens). The full file stays on disk as reference
+  // documentation. Optional -- if the file isn't there, seed with just the
+  // rulebook.
   try {
-    const kbPath = path.join(process.cwd(), "db", "cro_knowledge_base.md");
+    const kbPath = path.join(process.cwd(), "db", "cro_knowledge_base_condensed.md");
     const kbText = readFileSync(kbPath, "utf8");
     text += "\n\n---\n\n" + kbText;
   } catch {
