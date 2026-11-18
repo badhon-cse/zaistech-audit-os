@@ -14,16 +14,17 @@ export async function GET(_request, { params }) {
     .order("run_at", { ascending: false });
 
   const latest = audits?.[0] || null;
-  let findings = [], strengths = [], metrics = [];
+  let findings = [], strengths = [], metrics = [], inboxChecks = [];
   if (latest) {
-    [findings, strengths, metrics] = await Promise.all([
+    [findings, strengths, metrics, inboxChecks] = await Promise.all([
       db.from("findings").select("*").eq("audit_id", latest.id).order("priority").then((r) => r.data || []),
       db.from("strengths").select("*").eq("audit_id", latest.id).then((r) => r.data || []),
       db.from("metrics").select("*").eq("audit_id", latest.id).then((r) => r.data || []),
+      db.from("inbox_checks").select("*").eq("audit_id", latest.id).then((r) => r.data || []),
     ]);
   }
 
-  return Response.json({ lead, audits, latestAudit: latest, findings, strengths, metrics });
+  return Response.json({ lead, audits, latestAudit: latest, findings, strengths, metrics, inboxChecks });
 }
 
 export async function PATCH(request, { params }) {

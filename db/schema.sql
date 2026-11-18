@@ -79,7 +79,10 @@ create table if not exists metrics (
   page_weight_kb int,
   seo_score int,
   accessibility_score int,
-  top_opportunities jsonb
+  top_opportunities jsonb,
+  screenshot_base64 text,   -- real rendered screenshot from PageSpeed/Lighthouse, data: URI
+  element_issues jsonb,     -- [{audit, label}] -- specific elements Lighthouse flagged
+  page_issues jsonb         -- for product page: issues[] from parseProductPage (reviews/guarantee/etc missing)
 );
 
 create table if not exists inbox_checks (
