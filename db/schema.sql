@@ -100,7 +100,9 @@ create table if not exists inbox_checks (
   triggered_at timestamptz,
   due_at timestamptz,
   result jsonb,
-  verdict text             -- missing | weak | good | not_applicable
+  verdict text             -- missing | unconfirmed (heuristic only, no live test run) |
+                            -- unconfirmed_pending (live test triggered, awaiting due_at) |
+                            -- good | weak | not_applicable (final, from /api/inbox-checks/poll)
 );
 
 create table if not exists demos (

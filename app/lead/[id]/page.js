@@ -112,6 +112,8 @@ export default function LeadDetail({ params }) {
 
       {latestAudit && (
         <>
+          <ChatWidgetCard appsDetected={latestAudit.apps_detected || []} />
+
           {strengths.length > 0 && (
             <section style={{ ...cardStyle, background: "#f4faf6", border: "1px solid #d7ecdf" }}>
               <h3 style={{ ...h3, color: "#1e7a43" }}>✓ Strengths</h3>
@@ -180,6 +182,7 @@ export default function LeadDetail({ params }) {
                             note={c.result?.note}
                           />
                         ))}
+                        <LiveEmailTestControls leadId={id} onChange={load} />
                       </div>
                     )}
 
@@ -455,10 +458,94 @@ function IssueList({ title, items }) {
   );
 }
 
+// Which detected apps (from scan.homepage.apps, saved as audits.apps_detected
+// -- see APP_SIGNATURES in lib/scan.js) are chat/support widgets, and which of
+// those count as "has real chat" vs "basic, no AI" (Shopify Inbox is the
+// classic basic case the rulebook calls out by name -- see db/rulebook.md
+// section B, "No chat, or a basic chat with no AI (e.g. Shopify Inbox)").
+const CHAT_APP_LABELS = {
+  tidio: "Tidio", zendesk: "Zendesk Chat", intercom: "Intercom",
+  richpanel: "Richpanel", reamaze: "Re:amaze", shopifyInbox: "Shopify Inbox",
+};
+const BASIC_CHAT_APPS = new Set(["shopifyInbox"]);
+
+function ChatWidgetCard({ appsDetected }) {
+  const detected = (appsDetected || []).filter((a) => CHAT_APP_LABELS[a]);
+  const names = detected.map((a) => CHAT_APP_LABELS[a]);
+  const onlyBasic = detected.length > 0 && detected.every((a) => BASIC_CHAT_APPS.has(a));
+
+  let verdict, note;
+  if (detected.length === 0) {
+    verdict = "missing";
+    note = "No chat/support widget detected on the homepage — ZAIS Chat 7-day free-trial opportunity (lowest-friction pitch: zero risk to them).";
+  } else if (onlyBasic) {
+    verdict = "weak";
+    note = `Only ${names.join(", ")} detected — basic chat, no AI. Still a ZAIS Chat opportunity.`;
+  } else {
+    verdict = "good";
+    note = `Chat tool detected: ${names.join(", ")}.`;
+  }
+
+  return (
+    <section style={cardStyle}>
+      <h3 style={h3}>Chat & live support</h3>
+      <VerdictRow label="Chat widget" verdict={verdict} note={note} />
+    </section>
+  );
+}
+
+function LiveEmailTestControls({ leadId, onChange }) {
+  const [info, setInfo] = useState(null);
+  const [busy, setBusy] = useState(null);
+
+  useEffect(() => {
+    fetch(`/api/leads/${leadId}/shopper-test`).then((r) => r.json()).then(setInfo);
+  }, [leadId]);
+
+  async function trigger(kind) {
+    setBusy(kind);
+    try {
+      await fetch(`/api/leads/${leadId}/shopper-test`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind }),
+      });
+      onChange();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  if (!info) return null;
+
+  if (!info.configured) {
+    return (
+      <p style={{ fontSize: 12, color: "#9aa3af", margin: "4px 0 0" }}>
+        Live inbox confirmation isn't set up yet (needs AUDIT_INBOX_EMAIL / AUDIT_INBOX_APP_PASSWORD).
+      </p>
+    );
+  }
+
+  return (
+    <div style={{ fontSize: 12.5, color: "#5b6673", marginTop: 4 }}>
+      Test email for this lead: <code style={{ background: "#f0f2f5", padding: "1px 5px", borderRadius: 4 }}>{info.testEmail}</code>
+      <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
+        <button onClick={() => trigger("welcome")} disabled={busy} style={linkBtnSmall}>
+          {busy === "welcome" ? "…" : "Mark welcome signup just done"}
+        </button>
+        <button onClick={() => trigger("abandoned_cart")} disabled={busy} style={linkBtnSmall}>
+          {busy === "abandoned_cart" ? "…" : "Mark cart abandoned just now"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function VerdictRow({ label, verdict, note }) {
   const colors = {
     missing: { bg: "#fdecec", fg: "#b42318", text: "Missing" },
     unconfirmed: { bg: "#fef3e2", fg: "#9a6700", text: "Tool detected — needs manual check" },
+    unconfirmed_pending: { bg: "#eef2ff", fg: "#4338ca", text: "Live test running — awaiting result" },
     present: { bg: "#e7f6ec", fg: "#1e7a43", text: "Present" },
     good: { bg: "#e7f6ec", fg: "#1e7a43", text: "Good" },
     weak: { bg: "#fef3e2", fg: "#9a6700", text: "Weak" },
