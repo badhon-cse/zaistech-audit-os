@@ -19,6 +19,18 @@ export async function POST() {
     return Response.json({ error: "Could not read db/rulebook.md: " + e.message }, { status: 500 });
   }
 
+  // Append the CRO/email/ads research knowledge base (benchmarks + "real vs
+  // filler" guidance per rulebook section) so the findings-writer AI has real,
+  // sourced numbers to judge and back findings with, not just the checklist.
+  // Optional -- if the file isn't there yet, seed with just the rulebook.
+  try {
+    const kbPath = path.join(process.cwd(), "db", "cro_knowledge_base.md");
+    const kbText = readFileSync(kbPath, "utf8");
+    text += "\n\n---\n\n" + kbText;
+  } catch {
+    // no knowledge base file yet -- fine, seed with the rulebook alone
+  }
+
   const version = new Date().toISOString().slice(0, 10) + "-" + Math.random().toString(36).slice(2, 6);
   const { data, error } = await db
     .from("rulebook_versions")
