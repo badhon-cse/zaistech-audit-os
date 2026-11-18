@@ -33,6 +33,15 @@ export default function LeadDetail({ params }) {
     load();
   }
 
+  async function setOutcome(status) {
+    await fetch(`/api/leads/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    load();
+  }
+
   if (loading) return <p style={{ padding: 24, color: "#5b6673" }}>Loading…</p>;
   if (data.error) return <p style={{ padding: 24 }}>{data.error}</p>;
 
@@ -77,6 +86,23 @@ export default function LeadDetail({ params }) {
           </div>
         )}
       </div>
+
+      <section style={{ ...cardStyle, marginBottom: 20, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 13, color: "#5b6673" }}>Outcome:</span>
+        <span style={{ ...outcomeBadge, background: OUTCOME_COLORS[lead.status] || "#9aa5b1" }}>
+          {lead.status.replace("_", " ")}
+        </span>
+        <span style={{ fontSize: 12, color: "#9aa3af" }}>
+          (marking replied / won / lost feeds the{" "}
+          <a href="/rulebook" style={{ color: "#2f5d8a" }}>rulebook self-improvement</a> loop)
+        </span>
+        <div style={{ display: "flex", gap: 6, marginLeft: "auto", flexWrap: "wrap" }}>
+          <button onClick={() => setOutcome("outreach_sent")} style={outcomeBtn}>Outreach sent</button>
+          <button onClick={() => setOutcome("replied")} style={outcomeBtn}>Replied</button>
+          <button onClick={() => setOutcome("won")} style={{ ...outcomeBtn, borderColor: "#1a7a3c", color: "#1a7a3c" }}>Won client</button>
+          <button onClick={() => setOutcome("lost")} style={{ ...outcomeBtn, borderColor: "#b3261e", color: "#b3261e" }}>Lost / no response</button>
+        </div>
+      </section>
 
       {!latestAudit && (
         <p style={{ color: "#5b6673" }}>No audit yet. Go back to the pipeline and press "Run audit".</p>
@@ -367,6 +393,12 @@ function Metric({ label, value }) {
 const cardStyle = { background: "#fff", borderRadius: 12, border: "1px solid #e6e9ee", padding: 18, marginBottom: 16, boxShadow: "0 1px 2px rgba(16,24,40,.03)" };
 const h3 = { marginTop: 0, marginBottom: 12, fontSize: 13, color: "#5b6673", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 };
 const primaryBtn = { background: "#2f5d8a", color: "#fff", border: "none", borderRadius: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer" };
+const OUTCOME_COLORS = {
+  new: "#9aa5b1", auditing: "#f0a500", needs_review: "#d9822b", audited: "#2f5d8a",
+  demo_ready: "#6b4fbb", outreach_sent: "#1f8a70", replied: "#0f766e", won: "#1a7a3c", lost: "#b3261e",
+};
+const outcomeBadge = { fontSize: 12, fontWeight: 700, color: "#fff", borderRadius: 5, padding: "3px 9px", textTransform: "capitalize" };
+const outcomeBtn = { background: "#fff", border: "1px solid #cbd3dc", color: "#374151", borderRadius: 6, padding: "6px 10px", fontSize: 12.5, cursor: "pointer" };
 const demoBtn = { background: "#7c3aed", color: "#fff", border: "none", borderRadius: 6, padding: "5px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" };
 const demoBtnSecondary = { background: "#f3eefe", color: "#6d28d9", border: "1px solid #e5d9fc", borderRadius: 6, padding: "5px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" };
 const tag = { background: "#eef2f7", color: "#5b6673", fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", borderRadius: 4, padding: "2px 6px" };

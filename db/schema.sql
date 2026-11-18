@@ -133,7 +133,30 @@ create table if not exists rulebook_versions (
   created_at timestamptz not null default now()
 );
 
+-- Self-improvement loop: AI-drafted edits to the rulebook, based on which
+-- past findings correlated with a real outcome (lead.status reaching
+-- replied/won vs lost/no response) and which findings a human removed
+-- before sending (findings.included=false -- a direct "this was weak"
+-- signal even without a final outcome yet). Never applied automatically --
+-- a human reviews and approves/rejects each proposal; only on approval does
+-- it become a new live rulebook_versions row.
+create table if not exists rulebook_proposals (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  status text not null default 'pending', -- pending | approved | rejected
+  based_on_version text,       -- rulebook_versions.version this proposal edited from
+  proposed_text text not null, -- full replacement rulebook+kb text
+  summary text,                -- short human-readable list of what changed and why
+  evidence jsonb,               -- [{lead_id, company, outcome, note}] audits used as evidence
+  lead_count int default 0,     -- how many outcome-tagged leads this proposal was based on
+  reviewed_at timestamptz,
+  reviewed_by text,
+  review_note text,
+  applied_version text          -- rulebook_versions.version created on approval
+);
+
 create index if not exists idx_audits_lead on audits(lead_id);
 create index if not exists idx_findings_audit on findings(audit_id);
 create index if not exists idx_leads_status on leads(status);
 create index if not exists idx_leads_domain on leads(domain);
+create index if not exists idx_rulebook_proposals_status on rulebook_proposals(status);
