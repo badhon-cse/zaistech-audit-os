@@ -54,7 +54,11 @@ create table if not exists findings (
   priority int default 0,
   evidence_url text,
   source text default 'auto', -- auto | user
-  included boolean default true
+  included boolean default true,
+  crop_rect jsonb,          -- {top,left,width,height} in the matching page screenshot's pixel space, when a Lighthouse audit item pinpointed this exact element
+  screenshot_source text,   -- 'homepage' | 'product' -- which metrics row's screenshot crop_rect refers to
+  demo_html text,           -- AI-generated self-contained HTML mockup showing the fix for this specific finding
+  demo_generated_at timestamptz
 );
 
 create table if not exists strengths (
@@ -80,8 +84,10 @@ create table if not exists metrics (
   seo_score int,
   accessibility_score int,
   top_opportunities jsonb,
-  screenshot_base64 text,   -- real rendered screenshot from PageSpeed/Lighthouse, data: URI
-  element_issues jsonb,     -- [{audit, label}] -- specific elements Lighthouse flagged
+  screenshot_base64 text,   -- real rendered FULL-PAGE screenshot from PageSpeed/Lighthouse, data: URI
+  screenshot_width int,     -- pixel width of screenshot_base64, for cropping element rects to %
+  screenshot_height int,    -- pixel height of screenshot_base64
+  element_issues jsonb,     -- [{audit, label, rect:{top,left,width,height}}] -- specific elements Lighthouse flagged, with pixel coords when available
   page_issues jsonb         -- for product page: issues[] from parseProductPage (reviews/guarantee/etc missing)
 );
 
