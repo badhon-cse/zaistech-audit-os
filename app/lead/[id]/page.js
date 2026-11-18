@@ -235,6 +235,18 @@ export default function LeadDetail({ params }) {
   );
 }
 
+function DraftBlock({ title, onUse, children, last }) {
+  return (
+    <div style={{ borderBottom: last ? "none" : "1px solid #e6e9ee", padding: "10px 0" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: 12, color: "#9aa3af", fontWeight: 700, textTransform: "uppercase" }}>{title}</span>
+        <button onClick={onUse} style={linkBtnSmall}>Use this →</button>
+      </div>
+      {children}
+    </div>
+  );
+}
+
 const CHANNELS = ["Email", "LinkedIn DM", "Instagram DM", "Facebook DM", "WhatsApp", "Other"];
 const CHANNEL_COLORS = {
   Email: "#2f5d8a", "LinkedIn DM": "#0a66c2", "Instagram DM": "#c13584",
@@ -246,6 +258,29 @@ function OutreachSection({ leadId, outreach, onChange }) {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ channel: "Email", customChannel: "", step: "first", subject: "", body: "", status: "sent" });
   const [busyId, setBusyId] = useState(null);
+  const [draft, setDraft] = useState(null);
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState(null);
+
+  async function generateDraft() {
+    setGenerating(true);
+    setGenError(null);
+    try {
+      const res = await fetch(`/api/leads/${leadId}/outreach/generate`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setDraft(data.outreach);
+    } catch (e) {
+      setGenError(e.message);
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  function useDraft({ channel, step, subject, body }) {
+    setForm({ channel, customChannel: "", step, subject: subject || "", body, status: "draft" });
+    setShowForm(true);
+  }
 
   async function submit(e) {
     e.preventDefault();
@@ -293,10 +328,69 @@ function OutreachSection({ leadId, outreach, onChange }) {
     <section style={cardStyle}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h3 style={h3}>Outreach history</h3>
-        <button onClick={() => setShowForm((s) => !s)} style={{ ...outcomeBtn, fontWeight: 600 }}>
-          {showForm ? "Cancel" : "+ Log outreach"}
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={generateDraft} disabled={generating} style={{ ...outcomeBtn, fontWeight: 600, borderColor: "#2f5d8a", color: "#2f5d8a" }}>
+            {generating ? "Writing…" : "✎ Generate draft (AI)"}
+          </button>
+          <button onClick={() => setShowForm((s) => !s)} style={{ ...outcomeBtn, fontWeight: 600 }}>
+            {showForm ? "Cancel" : "+ Log outreach"}
+          </button>
+        </div>
       </div>
+      {genError && <p style={{ color: "#b3261e", fontSize: 13, marginTop: 8 }}>{genError}</p>}
+
+      {draft && (
+        <div style={{ background: "#f7f8fa", border: "1px solid #e6e9ee", borderRadius: 8, padding: 14, marginTop: 10, marginBottom: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <strong style={{ fontSize: 13 }}>AI draft — review before sending</strong>
+            <button onClick={() => setDraft(null)} style={linkBtnSmall}>Dismiss</button>
+          </div>
+
+          <DraftBlock
+            title="Cold email — first touch"
+            onUse={() => useDraft({ channel: "Email", step: "first", subject: draft.email.subject, body: draft.email.body })}
+          >
+            <div style={{ fontWeight: 600, fontSize: 13 }}>Subject: {draft.email.subject}</div>
+            <div style={{ whiteSpace: "pre-wrap", fontSize: 13, marginTop: 4 }}>{draft.email.body}</div>
+          </DraftBlock>
+
+          <DraftBlock
+            title="Email follow-up 1 (day 3)"
+            onUse={() => useDraft({ channel: "Email", step: "follow_up_1", body: draft.email.followUp1 })}
+          >
+            <div style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{draft.email.followUp1}</div>
+          </DraftBlock>
+
+          <DraftBlock
+            title="Email follow-up 2 (day 7)"
+            onUse={() => useDraft({ channel: "Email", step: "follow_up_2", body: draft.email.followUp2 })}
+          >
+            <div style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{draft.email.followUp2}</div>
+          </DraftBlock>
+
+          <DraftBlock
+            title="LinkedIn — connection note"
+            onUse={() => useDraft({ channel: "LinkedIn DM", step: "first", body: draft.linkedin.connectionNote })}
+          >
+            <div style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{draft.linkedin.connectionNote}</div>
+          </DraftBlock>
+
+          <DraftBlock
+            title="LinkedIn — message after accept"
+            onUse={() => useDraft({ channel: "LinkedIn DM", step: "follow_up_1", body: draft.linkedin.message })}
+          >
+            <div style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{draft.linkedin.message}</div>
+          </DraftBlock>
+
+          <DraftBlock
+            title="Instagram / Facebook DM"
+            onUse={() => useDraft({ channel: "Instagram DM", step: "first", body: draft.instagram.dm })}
+            last
+          >
+            <div style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{draft.instagram.dm}</div>
+          </DraftBlock>
+        </div>
+      )}
 
       {showForm && (
         <form onSubmit={submit} style={{ display: "grid", gap: 8, marginBottom: 14, marginTop: 4 }}>
