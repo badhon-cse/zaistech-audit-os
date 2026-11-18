@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 const PAGE_GROUPS = [
   { key: "homepage", label: "Homepage", metricsPage: "homepage" },
   { key: "product page", label: "Product Page", metricsPage: "product" },
-  { key: "checkout", label: "Checkout", metricsPage: null },
+  { key: "checkout", label: "Checkout", metricsPage: "checkout" },
   { key: "email", label: "Email (Welcome + Abandoned Cart)", metricsPage: null },
 ];
 

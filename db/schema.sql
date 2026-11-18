@@ -56,7 +56,7 @@ create table if not exists findings (
   source text default 'auto', -- auto | user
   included boolean default true,
   crop_rect jsonb,          -- {top,left,width,height} in the matching page screenshot's pixel space, when a Lighthouse audit item pinpointed this exact element
-  screenshot_source text,   -- 'homepage' | 'product' -- which metrics row's screenshot crop_rect refers to
+  screenshot_source text,   -- 'homepage' | 'product' | 'checkout' -- which metrics row's screenshot crop_rect refers to
   demo_html text,           -- AI-generated self-contained HTML mockup showing the fix for this specific finding
   demo_generated_at timestamptz
 );
