@@ -84,7 +84,8 @@ create table if not exists metrics (
   seo_score int,
   accessibility_score int,
   top_opportunities jsonb,
-  screenshot_base64 text,   -- real rendered FULL-PAGE screenshot from PageSpeed/Lighthouse, data: URI
+  screenshot_base64 text,   -- real rendered FULL-PAGE screenshot from PageSpeed/Lighthouse, data: URI -- captured at END of trace, may show an on-page popup
+  preview_screenshot_base64 text, -- early filmstrip frame (screenshot-thumbnails), popup-free in most cases -- used as the page's header/preview image
   screenshot_width int,     -- pixel width of screenshot_base64, for cropping element rects to %
   screenshot_height int,    -- pixel height of screenshot_base64
   element_issues jsonb,     -- [{audit, label, rect:{top,left,width,height}}] -- specific elements Lighthouse flagged, with pixel coords when available

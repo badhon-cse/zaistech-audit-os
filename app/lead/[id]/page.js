@@ -107,11 +107,19 @@ export default function LeadDetail({ params }) {
                 <h3 style={h3}>{g.label}</h3>
 
                 <div style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "flex-start" }}>
-                  {metric?.screenshot_base64 && (
+                  {/* preview_screenshot_base64 is an early, popup-free filmstrip
+                      frame -- used here instead of the full-page screenshot
+                      because the full-page shot is captured at the END of the
+                      page load, by which point a timed email/discount popup has
+                      usually appeared and covers the whole page (so every page's
+                      "full page" screenshot ends up looking like the same popup).
+                      Clicking still zooms to the full-page screenshot since
+                      that's still useful to see in full, popup and all. */}
+                  {(metric?.preview_screenshot_base64 || metric?.screenshot_base64) && (
                     <img
-                      src={metric.screenshot_base64}
+                      src={metric.preview_screenshot_base64 || metric.screenshot_base64}
                       alt={`${g.label} screenshot`}
-                      onClick={() => setLightbox(metric.screenshot_base64)}
+                      onClick={() => setLightbox(metric.screenshot_base64 || metric.preview_screenshot_base64)}
                       style={{ width: 150, borderRadius: 8, border: "1px solid #e6e9ee", cursor: "zoom-in", flexShrink: 0 }}
                     />
                   )}
