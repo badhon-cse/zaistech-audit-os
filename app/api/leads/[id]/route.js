@@ -24,7 +24,14 @@ export async function GET(_request, { params }) {
     ]);
   }
 
-  return Response.json({ lead, audits, latestAudit: latest, findings, strengths, metrics, inboxChecks });
+  const { data: outreach } = await db
+    .from("outreach")
+    .select("*")
+    .eq("lead_id", id)
+    .order("sent_at", { ascending: false, nullsFirst: false })
+    .order("id", { ascending: false });
+
+  return Response.json({ lead, audits, latestAudit: latest, findings, strengths, metrics, inboxChecks, outreach: outreach || [] });
 }
 
 export async function PATCH(request, { params }) {

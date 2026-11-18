@@ -45,7 +45,7 @@ export default function LeadDetail({ params }) {
   if (loading) return <p style={{ padding: 24, color: "#5b6673" }}>Loading…</p>;
   if (data.error) return <p style={{ padding: 24 }}>{data.error}</p>;
 
-  const { lead, latestAudit, findings, strengths, metrics, inboxChecks } = data;
+  const { lead, latestAudit, findings, strengths, metrics, inboxChecks, outreach } = data;
   const checkoutUpsell = latestAudit?.raw?.scan?.checkoutUpsell || null;
 
   const findingsByPage = {};
@@ -103,6 +103,8 @@ export default function LeadDetail({ params }) {
           <button onClick={() => setOutcome("lost")} style={{ ...outcomeBtn, borderColor: "#b3261e", color: "#b3261e" }}>Lost / no response</button>
         </div>
       </section>
+
+      <OutreachSection leadId={id} outreach={outreach || []} onChange={load} />
 
       {!latestAudit && (
         <p style={{ color: "#5b6673" }}>No audit yet. Go back to the pipeline and press "Run audit".</p>
@@ -227,6 +229,127 @@ export default function LeadDetail({ params }) {
         </>
       )}
     </div>
+  );
+}
+
+const CHANNELS = ["Email", "LinkedIn DM", "Instagram DM", "Facebook DM", "WhatsApp", "Other"];
+const CHANNEL_COLORS = {
+  Email: "#2f5d8a", "LinkedIn DM": "#0a66c2", "Instagram DM": "#c13584",
+  "Facebook DM": "#1877f2", WhatsApp: "#25d366", Other: "#6b7280",
+};
+
+function OutreachSection({ leadId, outreach, onChange }) {
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ channel: "Email", customChannel: "", step: "first", subject: "", body: "", status: "sent" });
+  const [busyId, setBusyId] = useState(null);
+
+  async function submit(e) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const channel = form.channel === "Other" ? (form.customChannel || "Other") : form.channel;
+      await fetch(`/api/leads/${leadId}/outreach`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channel, step: form.step, subject: form.subject, body: form.body, status: form.status }),
+      });
+      setForm({ channel: "Email", customChannel: "", step: "first", subject: "", body: "", status: "sent" });
+      setShowForm(false);
+      onChange();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function markReplied(id) {
+    setBusyId(id);
+    try {
+      await fetch(`/api/outreach/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "replied" }),
+      });
+      onChange();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function removeTouch(id) {
+    setBusyId(id);
+    try {
+      await fetch(`/api/outreach/${id}`, { method: "DELETE" });
+      onChange();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <section style={cardStyle}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h3 style={h3}>Outreach history</h3>
+        <button onClick={() => setShowForm((s) => !s)} style={{ ...outcomeBtn, fontWeight: 600 }}>
+          {showForm ? "Cancel" : "+ Log outreach"}
+        </button>
+      </div>
+
+      {showForm && (
+        <form onSubmit={submit} style={{ display: "grid", gap: 8, marginBottom: 14, marginTop: 4 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <select value={form.channel} onChange={(e) => setForm({ ...form, channel: e.target.value })} style={selectStyle}>
+              {CHANNELS.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            {form.channel === "Other" && (
+              <input placeholder="Channel name" value={form.customChannel} onChange={(e) => setForm({ ...form, customChannel: e.target.value })} style={{ ...inputStyle, maxWidth: 160 }} />
+            )}
+            <select value={form.step} onChange={(e) => setForm({ ...form, step: e.target.value })} style={selectStyle}>
+              <option value="first">First touch</option>
+              <option value="follow_up_1">Follow-up 1</option>
+              <option value="follow_up_2">Follow-up 2</option>
+              <option value="follow_up_3">Follow-up 3+</option>
+            </select>
+            <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} style={selectStyle}>
+              <option value="sent">Sent</option>
+              <option value="draft">Draft (not sent yet)</option>
+            </select>
+          </div>
+          {form.channel === "Email" && (
+            <input placeholder="Subject line" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} style={inputStyle} />
+          )}
+          <textarea required placeholder="Message body" value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} rows={4} style={{ ...inputStyle, fontFamily: "inherit" }} />
+          <button type="submit" disabled={saving} style={{ ...primaryBtn, width: "fit-content" }}>
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </form>
+      )}
+
+      {outreach.length === 0 && !showForm && (
+        <p style={{ color: "#9aa3af", fontSize: 13.5 }}>No outreach logged yet for this lead.</p>
+      )}
+
+      {outreach.map((o) => (
+        <div key={o.id} style={{ borderBottom: "1px solid #f0f2f5", padding: "10px 0" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ ...channelBadge, background: CHANNEL_COLORS[o.channel] || "#6b7280" }}>{o.channel}</span>
+            <span style={{ fontSize: 12, color: "#9aa3af" }}>{(o.step || "first").replace(/_/g, " ")}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: o.status === "replied" ? "#0f766e" : o.status === "draft" ? "#d9822b" : "#1f8a70" }}>
+              {o.status?.toUpperCase()}
+            </span>
+            {o.sent_at && <span style={{ fontSize: 12, color: "#9aa3af" }}>{new Date(o.sent_at).toLocaleDateString()}</span>}
+            <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+              {o.status !== "replied" && (
+                <button onClick={() => markReplied(o.id)} disabled={busyId === o.id} style={linkBtnSmall}>Mark replied</button>
+              )}
+              <button onClick={() => removeTouch(o.id)} disabled={busyId === o.id} style={{ ...linkBtnSmall, color: "#b3261e" }}>Delete</button>
+            </div>
+          </div>
+          {o.subject && <div style={{ fontWeight: 600, fontSize: 13.5, marginTop: 4 }}>{o.subject}</div>}
+          <div style={{ fontSize: 13, color: "#374151", marginTop: 4, whiteSpace: "pre-wrap" }}>{o.body}</div>
+        </div>
+      ))}
+    </section>
   );
 }
 
@@ -399,6 +522,10 @@ const OUTCOME_COLORS = {
 };
 const outcomeBadge = { fontSize: 12, fontWeight: 700, color: "#fff", borderRadius: 5, padding: "3px 9px", textTransform: "capitalize" };
 const outcomeBtn = { background: "#fff", border: "1px solid #cbd3dc", color: "#374151", borderRadius: 6, padding: "6px 10px", fontSize: 12.5, cursor: "pointer" };
+const inputStyle = { border: "1px solid #cbd3dc", borderRadius: 6, padding: "8px 10px", fontSize: 13.5, width: "100%", boxSizing: "border-box" };
+const selectStyle = { ...inputStyle, width: "auto" };
+const channelBadge = { fontSize: 11, fontWeight: 700, color: "#fff", borderRadius: 5, padding: "3px 8px" };
+const linkBtnSmall = { background: "none", border: "none", color: "#2f5d8a", fontSize: 12, cursor: "pointer", padding: 0 };
 const demoBtn = { background: "#7c3aed", color: "#fff", border: "none", borderRadius: 6, padding: "5px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" };
 const demoBtnSecondary = { background: "#f3eefe", color: "#6d28d9", border: "1px solid #e5d9fc", borderRadius: 6, padding: "5px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" };
 const tag = { background: "#eef2f7", color: "#5b6673", fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", borderRadius: 4, padding: "2px 6px" };
