@@ -73,8 +73,40 @@ export default function LeadDetail({ params }) {
             <section style={cardStyle}>
               <h3 style={h3}>PageSpeed</h3>
               {metrics.map((m) => (
-                <div key={m.id}>
-                  {m.page} ({m.device}): score {m.pagespeed_score}, LCP {m.lcp}, CLS {m.cls}, TBT {m.tbt}
+                <div key={m.id} style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 13, color: "#5b6673", marginBottom: 8, textTransform: "capitalize" }}>
+                    {m.page} &middot; {m.device}
+                  </div>
+
+                  <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginBottom: 10 }}>
+                    <ScoreBadge label="Performance" value={m.pagespeed_score} />
+                    <ScoreBadge label="SEO" value={m.seo_score} />
+                    <ScoreBadge label="Accessibility" value={m.accessibility_score} />
+                  </div>
+
+                  <div style={{ display: "flex", gap: 20, flexWrap: "wrap", fontSize: 13, color: "#374151", marginBottom: m.top_opportunities?.length ? 10 : 0 }}>
+                    <Metric label="LCP" value={m.lcp} />
+                    <Metric label="CLS" value={m.cls} />
+                    <Metric label="TBT" value={m.tbt} />
+                    <Metric label="Speed Index" value={m.speed_index} />
+                    {m.page_weight_kb != null && <Metric label="Page weight" value={`${m.page_weight_kb} KB`} />}
+                    {m.requests != null && <Metric label="Requests" value={m.requests} />}
+                  </div>
+
+                  {m.top_opportunities?.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "#5b6673", marginBottom: 4 }}>
+                        Top opportunities
+                      </div>
+                      <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#374151" }}>
+                        {m.top_opportunities.map((o, i) => (
+                          <li key={i}>
+                            {o.title} {o.savingsMs ? `— saves ~${o.savingsMs}ms` : ""}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               ))}
             </section>
@@ -87,6 +119,47 @@ export default function LeadDetail({ params }) {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+function scoreColor(v) {
+  if (v == null) return "#9aa3af";
+  if (v >= 90) return "#16a34a";
+  if (v >= 50) return "#d97706";
+  return "#dc2626";
+}
+
+function ScoreBadge({ label, value }) {
+  return (
+    <div style={{ textAlign: "center" }}>
+      <div
+        style={{
+          width: 48,
+          height: 48,
+          borderRadius: "50%",
+          border: `3px solid ${scoreColor(value)}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontWeight: 700,
+          fontSize: 15,
+          color: scoreColor(value),
+          margin: "0 auto 4px",
+        }}
+      >
+        {value ?? "—"}
+      </div>
+      <div style={{ fontSize: 11, color: "#5b6673" }}>{label}</div>
+    </div>
+  );
+}
+
+function Metric({ label, value }) {
+  return (
+    <div>
+      <span style={{ color: "#9aa3af" }}>{label}:</span>{" "}
+      <span style={{ fontWeight: 600 }}>{value ?? "—"}</span>
     </div>
   );
 }

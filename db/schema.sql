@@ -76,7 +76,10 @@ create table if not exists metrics (
   tbt text,
   speed_index text,
   requests int,
-  page_weight_kb int
+  page_weight_kb int,
+  seo_score int,
+  accessibility_score int,
+  top_opportunities jsonb
 );
 
 create table if not exists inbox_checks (
