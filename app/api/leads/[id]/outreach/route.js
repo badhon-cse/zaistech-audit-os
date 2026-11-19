@@ -1,15 +1,50 @@
 import { supabaseAdmin } from "../../../../../lib/supabase.js";
 
-// Follow-up cadence per db/rulebook.md §7 (day 3, day 7) -- used to
-// auto-suggest the lead's next_action/next_action_date whenever a real
-// (non-draft) touch is logged, so the outreach tracker always shows when
-// someone is due for a follow-up without the user having to work it out by
-// hand. Always editable afterward on the tracker page.
-const NEXT_STEP = {
-  first: { step: "follow_up_1", label: "Send follow-up 1", daysOut: 3 },
-  follow_up_1: { step: "follow_up_2", label: "Send follow-up 2", daysOut: 4 },
-  follow_up_2: { step: "follow_up_3", label: "Decide: revisit in a month or move on", daysOut: 30 },
+// Follow-up cadence -- used to auto-suggest the lead's
+// next_action/next_action_date whenever a real (non-draft) touch is logged,
+// so the outreach tracker always shows when someone is due for a follow-up
+// without the user having to work it out by hand. Always editable afterward
+// on the tracker page.
+//
+// This is relationship-building, not bulk sequencing: few touches, spaced
+// out, each one meant to read as a person following up rather than a
+// sequence firing. Email follows db/rulebook.md §7 (day 3, day 7, then a
+// long gap). LinkedIn and Instagram/FB are their own, slightly slower
+// cadences -- those are conversational channels where a quick second and
+// third touch reads as pushy, so they get more room between touches than a
+// cold email follow-up would. After the last scripted touch, the lead goes
+// to a single long-out "revisit" with no further auto-step -- continuing
+// after that is a deliberate human decision, not an autopilot continuation.
+const CHANNEL_CADENCE = {
+  Email: {
+    first: { step: "follow_up_1", label: "Follow up with a different finding", daysOut: 3 },
+    follow_up_1: { step: "follow_up_2", label: "Send the breakup-style follow-up (keep the door open)", daysOut: 4 },
+    follow_up_2: { step: "revisit", label: "Revisit — reach out again if the timing looks better", daysOut: 45 },
+  },
+  "LinkedIn DM": {
+    first: { step: "follow_up_1", label: "Send a second note with one more finding", daysOut: 4 },
+    follow_up_1: { step: "follow_up_2", label: "Send a warm last check-in", daysOut: 10 },
+    follow_up_2: { step: "revisit", label: "Revisit — reconnect in a few weeks", daysOut: 45 },
+  },
+  "Instagram DM": {
+    first: { step: "follow_up_1", label: "Send a quick, friendly follow-up", daysOut: 4 },
+    follow_up_1: { step: "follow_up_2", label: "Send a warm last check-in", daysOut: 10 },
+    follow_up_2: { step: "revisit", label: "Revisit — reach out again later", daysOut: 45 },
+  },
+  "Facebook DM": {
+    first: { step: "follow_up_1", label: "Send a quick, friendly follow-up", daysOut: 4 },
+    follow_up_1: { step: "follow_up_2", label: "Send a warm last check-in", daysOut: 10 },
+    follow_up_2: { step: "revisit", label: "Revisit — reach out again later", daysOut: 45 },
+  },
+  WhatsApp: {
+    first: { step: "follow_up_1", label: "Send a quick, friendly follow-up", daysOut: 3 },
+    follow_up_1: { step: "follow_up_2", label: "Send a warm last check-in", daysOut: 7 },
+    follow_up_2: { step: "revisit", label: "Revisit — reach out again later", daysOut: 30 },
+  },
 };
+// "Other", or anything not listed above, follows the email pace -- the
+// slowest, most deliberate one -- rather than assuming it can move fast.
+const DEFAULT_CADENCE = CHANNEL_CADENCE.Email;
 
 export async function GET(_request, { params }) {
   const db = supabaseAdmin();
@@ -60,7 +95,8 @@ export async function POST(request, { params }) {
   // that's already replied/won/lost (no follow-up needed).
   const STOP_STATUSES = ["replied", "won", "lost"];
   if (row.status !== "draft" && !(lead && STOP_STATUSES.includes(lead.status))) {
-    const next = NEXT_STEP[row.step];
+    const cadence = CHANNEL_CADENCE[channel] || DEFAULT_CADENCE;
+    const next = cadence[row.step];
     if (next) {
       const dueDate = new Date(Date.now() + next.daysOut * 24 * 60 * 60 * 1000);
       leadPatch.next_action = `${next.label} (${channel})`;
