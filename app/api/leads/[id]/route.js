@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "../../../../lib/supabase.js";
+import { clearLeadFollowups } from "../../../../lib/followups.js";
 
 export async function GET(_request, { params }) {
   const db = supabaseAdmin();
@@ -38,6 +39,8 @@ export async function GET(_request, { params }) {
 }
 
 const NO_FOLLOWUP_STATUSES = ["replied", "won", "lost"];
+// Must match the next_action text runAudit() sets in lib/audit.js.
+const REVIEW_REMINDER = "Review AI findings and approve";
 
 // Only these fields may be changed via PATCH -- everything else in the body
 // is ignored (so a client can't overwrite domain, created_at, id, etc).
@@ -82,6 +85,20 @@ export async function PATCH(request, { params }) {
   if (body.status && NO_FOLLOWUP_STATUSES.includes(body.status) && body.next_action_date === undefined) {
     patch.next_action = null;
     patch.next_action_date = null;
+    // ...and every per-channel reminder too (no-op if that table doesn't
+    // exist yet -- see lib/followups.js).
+    await clearLeadFollowups(db, params.id);
+  }
+
+  // Approving an audit completes the "Review AI findings and approve"
+  // reminder that runAudit() (lib/audit.js) set -- clear it so it doesn't
+  // linger on the tracker as an ever-more-overdue follow-up.
+  if (patch.status === "audited" && body.next_action === undefined && body.next_action_date === undefined) {
+    const { data: current } = await db.from("leads").select("next_action").eq("id", params.id).single();
+    if (current?.next_action === REVIEW_REMINDER) {
+      patch.next_action = null;
+      patch.next_action_date = null;
+    }
   }
 
   const { data, error } = await db.from("leads").update(patch).eq("id", params.id).select().single();

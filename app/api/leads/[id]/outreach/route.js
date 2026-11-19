@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "../../../../../lib/supabase.js";
+import { upsertChannelFollowup, deleteChannelFollowup, leadSummaryFromFollowups } from "../../../../../lib/followups.js";
 
 // Follow-up cadence -- used to auto-suggest the lead's
 // next_action/next_action_date whenever a real (non-draft) touch is logged,
@@ -93,19 +94,42 @@ export async function POST(request, { params }) {
   // Auto-suggest the next follow-up so the tracker always has a due date --
   // but never for a draft (nothing was actually sent), and never for a lead
   // that's already replied/won/lost (no follow-up needed).
+  //
+  // Each channel keeps its own reminder (channel_followups, see
+  // lib/followups.js), so logging a LinkedIn touch no longer erases the
+  // pending email follow-up. The lead-level next_action/next_action_date
+  // are still written too, as a summary (= the earliest per-channel
+  // reminder), so anything reading only those columns keeps working.
   const STOP_STATUSES = ["replied", "won", "lost"];
   if (row.status !== "draft" && !(lead && STOP_STATUSES.includes(lead.status))) {
     const cadence = CHANNEL_CADENCE[channel] || DEFAULT_CADENCE;
     const next = cadence[row.step];
+    let thisChannel;
     if (next) {
       // Stored as a plain UTC calendar date (YYYY-MM-DD). The server has no
       // idea of the operator's timezone; the tracker page compares this
-      // against the viewer's *local* date (see todayISO in
-      // app/outreach/page.js), so near midnight it can be off by one day
-      // at most, which is fine for a follow-up reminder.
+      // against the viewer's *local* date (see todayISO in lib/urgency.js),
+      // so near midnight it can be off by one day at most, which is fine
+      // for a follow-up reminder.
       const dueDate = new Date(Date.now() + next.daysOut * 24 * 60 * 60 * 1000);
-      leadPatch.next_action = `${next.label} (${channel})`;
-      leadPatch.next_action_date = dueDate.toISOString().slice(0, 10);
+      thisChannel = { step: next.step, next_action: next.label, next_action_date: dueDate.toISOString().slice(0, 10) };
+    } else {
+      thisChannel = null; // end of this channel's cadence -- no further auto-step
+    }
+
+    const write = thisChannel
+      ? await upsertChannelFollowup(db, params.id, channel, thisChannel)
+      : await deleteChannelFollowup(db, params.id, channel);
+    const summary = write.available ? await leadSummaryFromFollowups(db, params.id) : null;
+
+    if (summary) {
+      leadPatch.next_action = summary.next_action;
+      leadPatch.next_action_date = summary.next_action_date;
+    } else if (thisChannel) {
+      // Fallback (channel_followups table not created yet): old behavior,
+      // the single lead-level field follows the channel just logged.
+      leadPatch.next_action = `${thisChannel.next_action} (${channel})`;
+      leadPatch.next_action_date = thisChannel.next_action_date;
     } else {
       leadPatch.next_action = null;
       leadPatch.next_action_date = null;

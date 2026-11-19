@@ -5,16 +5,10 @@ import {
   th, tdTop as td, rowDivider, inputStyle, selectStyle, labelStyle, errorText, backLink, h1Style, tileStyle,
   primaryBtnLg, secondaryBtn, outlineBtn, dangerBtn, smallBtn, smallDangerBtn, toggleBtn, toggleBtnActive, linkBtn,
 } from "../../lib/ui.js";
+import { urgency, URGENCY_STYLE, primaryFollowup, compareByDue } from "../../lib/urgency.js";
 
-// Today's date as YYYY-MM-DD in the *viewer's local timezone*. This page runs
-// in the operator's browser (Bangladesh, UTC+6), so "due today"/"overdue"
-// must follow their calendar day -- toISOString() would give UTC's date,
-// which is still "yesterday" for the first 6 hours of every local day.
-function todayISO() {
-  const d = new Date();
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
+// Due-date / urgency helpers (todayISO, urgency, URGENCY_STYLE,
+// primaryFollowup, compareByDue) live in lib/urgency.js, shared with /today.
 
 // Reads the server's { error } message from a failed response, falling back
 // to the HTTP status text if the body isn't JSON.
@@ -22,20 +16,6 @@ async function errorMessage(res) {
   const data = await res.json().catch(() => ({}));
   return data.error || res.statusText || "Request failed (" + res.status + ")";
 }
-
-function urgency(dateStr) {
-  if (!dateStr) return null;
-  const today = todayISO();
-  if (dateStr < today) return "overdue";
-  if (dateStr === today) return "today";
-  return "upcoming";
-}
-
-const URGENCY_STYLE = {
-  overdue: { bg: "#fdecec", fg: "#b42318", label: "Overdue" },
-  today: { bg: "#fef3e2", fg: "#9a6700", label: "Due today" },
-  upcoming: { bg: "#eef2ff", fg: "#4338ca", label: "Upcoming" },
-};
 
 // This page is the one place all outreach work happens -- drafting,
 // sending/logging, follow-up scheduling, and marking the outcome. The audit
@@ -48,17 +28,47 @@ export default function OutreachTracker() {
   const [savingId, setSavingId] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
 
+  const [loadError, setLoadError] = useState(null);
+
   async function load() {
     setLoading(true);
-    const res = await fetch("/api/outreach-tracker");
-    const data = await res.json();
-    setLeads(data.leads || []);
-    setLoading(false);
+    try {
+      const res = await fetch("/api/outreach-tracker");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) setLoadError("Could not load the tracker: " + (data.error || res.statusText));
+      else setLoadError(null);
+      setLeads(data.leads || []);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
     load();
+    // /outreach?lead=<id> (linked from /today) opens that lead's panel.
+    const leadParam = new URLSearchParams(window.location.search).get("lead");
+    if (leadParam) setExpandedId(leadParam);
   }, []);
+
+  // Saves the row-level "Next action / Due". When the row is showing a
+  // per-channel follow-up, the edit goes to that channel's reminder;
+  // otherwise (no per-channel reminders, or the channel_followups table
+  // isn't set up yet) to the lead-level next_action/next_action_date.
+  async function saveFollowup(leadId, channel, patch) {
+    if (!channel) return saveNextAction(leadId, patch);
+    setSavingId(leadId);
+    try {
+      const res = await fetch(`/api/leads/${leadId}/followups`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channel, ...patch }),
+      });
+      if (!res.ok) alert("Could not save next action: " + (await errorMessage(res)));
+      await load();
+    } finally {
+      setSavingId(null);
+    }
+  }
 
   async function saveNextAction(leadId, patch) {
     setSavingId(leadId);
@@ -80,17 +90,10 @@ export default function OutreachTracker() {
   const contacted = (leads || []).filter((l) => l.touchCount > 0);
   const notContacted = (leads || []).filter((l) => l.touchCount === 0);
 
-  const order = { overdue: 0, today: 1, upcoming: 2, none: 3 };
-  contacted.sort((a, b) => {
-    const ua = order[urgency(a.next_action_date) || "none"];
-    const ub = order[urgency(b.next_action_date) || "none"];
-    if (ua !== ub) return ua - ub;
-    if (a.next_action_date && b.next_action_date) return a.next_action_date.localeCompare(b.next_action_date);
-    return 0;
-  });
+  contacted.sort((a, b) => compareByDue(a, b));
 
-  const overdueCount = contacted.filter((l) => urgency(l.next_action_date) === "overdue").length;
-  const todayCount = contacted.filter((l) => urgency(l.next_action_date) === "today").length;
+  const overdueCount = contacted.filter((l) => urgency(primaryFollowup(l).next_action_date) === "overdue").length;
+  const todayCount = contacted.filter((l) => urgency(primaryFollowup(l).next_action_date) === "today").length;
 
   function toggle(leadId) {
     setExpandedId((cur) => (cur === leadId ? null : leadId));
@@ -109,6 +112,7 @@ export default function OutreachTracker() {
         Who's been contacted, on which channel, when the next follow-up is due, and the place to draft and log every
         touch. (Audits live on each lead's own page — this page is outreach only.)
       </p>
+      {loadError && <p style={errorText}>{loadError}</p>}
 
       <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
         <Tile n={overdueCount} label="Overdue" color="#b42318" />
@@ -134,7 +138,7 @@ export default function OutreachTracker() {
             <TrackerRow
               key={lead.id}
               lead={lead}
-              onSave={saveNextAction}
+              onSave={saveFollowup}
               busy={savingId === lead.id}
               expanded={expandedId === lead.id}
               onToggle={() => toggle(lead.id)}
@@ -167,9 +171,23 @@ export default function OutreachTracker() {
 }
 
 function TrackerRow({ lead, onSave, busy, expanded, onToggle, onPanelChange }) {
-  const [actionText, setActionText] = useState(lead.next_action || "");
-  const [actionDate, setActionDate] = useState(lead.next_action_date || "");
-  const u = urgency(lead.next_action_date);
+  // The row shows ONE primary follow-up: the earliest per-channel reminder,
+  // or the lead-level next_action/_date when there are none (see
+  // primaryFollowup in lib/urgency.js). Other channels' reminders are
+  // listed underneath so none of them is hidden.
+  const primary = primaryFollowup(lead);
+  const others = (lead.followups || []).filter(
+    (f) => f.channel !== primary.channel && (f.next_action || f.next_action_date)
+  );
+  const [actionText, setActionText] = useState(primary.next_action || "");
+  const [actionDate, setActionDate] = useState(primary.next_action_date || "");
+  // Re-sync the inputs when the underlying follow-up changes after a reload
+  // (e.g. a touch logged in the panel below scheduled a new one).
+  useEffect(() => {
+    setActionText(primary.next_action || "");
+    setActionDate(primary.next_action_date || "");
+  }, [primary.channel, primary.next_action, primary.next_action_date]);
+  const u = urgency(primary.next_action_date);
   const us = u ? URGENCY_STYLE[u] : null;
   const fid = useId();
 
@@ -206,16 +224,34 @@ function TrackerRow({ lead, onSave, busy, expanded, onToggle, onPanelChange }) {
           </span>
         </td>
         <td style={td}>
-          <label htmlFor={`${fid}-action`} style={labelStyle}>Next action</label>
+          <label htmlFor={`${fid}-action`} style={labelStyle}>
+            Next action{primary.channel ? ` · ${primary.channel}` : ""}
+          </label>
           <input
             id={`${fid}-action`}
             value={actionText}
             onChange={(e) => setActionText(e.target.value)}
-            onBlur={() => actionText !== (lead.next_action || "") && onSave(lead.id, { next_action: actionText || null })}
+            onBlur={() =>
+              actionText !== (primary.next_action || "") &&
+              onSave(lead.id, primary.channel, primary.channel
+                ? { next_action: actionText || null, next_action_date: actionDate || null }
+                : { next_action: actionText || null })
+            }
             placeholder="e.g. Send follow-up 1"
             style={{ ...inputStyle, width: 170 }}
             disabled={busy}
           />
+          {others.map((f) => {
+            const ou = urgency(f.next_action_date);
+            return (
+              <div key={f.channel} style={{ fontSize: FONT.xs, color: COLORS.muted, marginTop: 4, maxWidth: 190 }}>
+                Also: {f.channel}{f.next_action_date ? ` · ${f.next_action_date}` : ""}
+                {ou && ou !== "upcoming" && (
+                  <span style={{ color: URGENCY_STYLE[ou].fg, fontWeight: 700 }}> · {URGENCY_STYLE[ou].label}</span>
+                )}
+              </div>
+            );
+          })}
         </td>
         <td style={td}>
           <label htmlFor={`${fid}-date`} style={labelStyle}>Due date</label>
@@ -224,7 +260,12 @@ function TrackerRow({ lead, onSave, busy, expanded, onToggle, onPanelChange }) {
             type="date"
             value={actionDate}
             onChange={(e) => setActionDate(e.target.value)}
-            onBlur={() => actionDate !== (lead.next_action_date || "") && onSave(lead.id, { next_action_date: actionDate || null })}
+            onBlur={() =>
+              actionDate !== (primary.next_action_date || "") &&
+              onSave(lead.id, primary.channel, primary.channel
+                ? { next_action: actionText || null, next_action_date: actionDate || null }
+                : { next_action_date: actionDate || null })
+            }
             style={{ ...inputStyle, width: 136 }}
             disabled={busy}
           />

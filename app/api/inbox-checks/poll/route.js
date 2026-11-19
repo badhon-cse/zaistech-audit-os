@@ -6,6 +6,7 @@
 //
 // Call this on a schedule (e.g. a Claude scheduled task hitting this URL a
 // few times a day) once AUDIT_INBOX_EMAIL / AUDIT_INBOX_APP_PASSWORD are set.
+// Nothing in this repo calls it automatically: it's meant to be hit by the same external scheduler as /api/today-summary, if one gets set up.
 import { supabaseAdmin } from "../../../../lib/supabase.js";
 import { isMailboxConfigured, findEmailsForLead } from "../../../../lib/mailbox.js";
 

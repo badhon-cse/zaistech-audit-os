@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "../../../../lib/supabase.js";
+import { clearLeadFollowups } from "../../../../lib/followups.js";
 
 export async function PATCH(request, { params }) {
   const db = supabaseAdmin();
@@ -21,6 +22,7 @@ export async function PATCH(request, { params }) {
     const leadPatch = { next_action: null, next_action_date: null, updated_at: new Date().toISOString() };
     if (lead && !["won", "lost"].includes(lead.status)) leadPatch.status = "replied";
     await db.from("leads").update(leadPatch).eq("id", data.lead_id);
+    await clearLeadFollowups(db, data.lead_id); // per-channel reminders too (no-op before migration)
   }
 
   return Response.json({ outreach: data });

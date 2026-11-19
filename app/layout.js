@@ -34,6 +34,7 @@ export default function RootLayout({ children }) {
               Zaistech Audit OS
             </a>
             <nav style={{ display: "flex", gap: 16, marginLeft: 20 }}>
+              <a href="/today" style={navLink}>Today</a>
               <a href="/outreach" style={navLink}>Outreach</a>
               <a href="/rulebook" style={navLink}>Rulebook</a>
             </nav>

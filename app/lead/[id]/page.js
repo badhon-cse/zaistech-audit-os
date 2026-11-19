@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import {
   COLORS, FONT, RADIUS, cardStyle as baseCard, tagStyle as tag, primaryBtnLg as primaryBtn, linkBtn, backLink,
+  smallBtn, smallDangerBtn, disabledStyle,
 } from "../../../lib/ui.js";
 
 const PAGE_GROUPS = [
@@ -38,6 +39,30 @@ export default function LeadDetail({ params }) {
       alert("Could not approve audit: " + (err.error || res.statusText));
     }
     load();
+  }
+
+  // Pull a finding from outreach (included=false) or put it back. A pulled
+  // finding is skipped by the AI draft generator and counts as a "weak
+  // finding" signal for the rulebook self-improvement loop.
+  const [findingBusyId, setFindingBusyId] = useState(null);
+  async function toggleIncluded(f) {
+    const included = f.included === false; // pulled -> keep, kept -> pull
+    setFindingBusyId(f.id);
+    try {
+      const res = await fetch(`/api/findings/${f.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ included }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert("Could not update finding: " + (err.error || res.statusText));
+        return;
+      }
+      setData((d) => ({ ...d, findings: d.findings.map((x) => (x.id === f.id ? { ...x, included } : x)) }));
+    } finally {
+      setFindingBusyId(null);
+    }
   }
 
   if (loading) return <p style={{ color: COLORS.textSecondary }}>Loading…</p>;
@@ -193,7 +218,9 @@ export default function LeadDetail({ params }) {
 
                 {pageFindings.length > 0 && (
                   <div style={{ marginTop: 14 }}>
-                    {pageFindings.map((f) => <FindingRow key={f.id} f={f} metric={metric} onZoom={setLightbox} />)}
+                    {pageFindings.map((f) => (
+                      <FindingRow key={f.id} f={f} metric={metric} onZoom={setLightbox} onToggleIncluded={toggleIncluded} busy={findingBusyId === f.id} />
+                    ))}
                   </div>
                 )}
               </section>
@@ -205,7 +232,7 @@ export default function LeadDetail({ params }) {
               <h3 style={h3}>Other Findings</h3>
               {otherFindings.map((f) => {
                 const m = f.screenshot_source ? metrics.find((mm) => mm.page === f.screenshot_source) : null;
-                return <FindingRow key={f.id} f={f} metric={m} onZoom={setLightbox} />;
+                return <FindingRow key={f.id} f={f} metric={m} onZoom={setLightbox} onToggleIncluded={toggleIncluded} busy={findingBusyId === f.id} />;
               })}
             </section>
           )}
@@ -221,7 +248,8 @@ export default function LeadDetail({ params }) {
   );
 }
 
-function FindingRow({ f, metric, onZoom }) {
+function FindingRow({ f, metric, onZoom, onToggleIncluded, busy }) {
+  const pulled = f.included === false;
   // A crop is only shown when a real Lighthouse-flagged element matched this
   // finding (see matchCropRect in lib/audit.js) -- pure CSS crop of the
   // full-page screenshot, no image processing needed.
@@ -252,7 +280,7 @@ function FindingRow({ f, metric, onZoom }) {
           />
         )}
 
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ flex: 1, minWidth: 0, opacity: pulled ? 0.6 : 1 }}>
           <div style={{ fontWeight: 600, fontSize: FONT.md }}>
             <span style={{ ...tag, marginRight: 6 }}>{f.area}</span>
             {f.what}
@@ -260,7 +288,24 @@ function FindingRow({ f, metric, onZoom }) {
           <div style={{ fontSize: FONT.sm, color: COLORS.textSecondary, marginTop: 3 }}>Why it costs money: {f.why}</div>
           <div style={{ fontSize: FONT.sm, color: COLORS.textSecondary }}>Fix: {f.fix}</div>
           <div style={{ fontSize: FONT.sm, fontWeight: 600, color: COLORS.primary, marginTop: 2 }}>Service: {f.service}</div>
+          {pulled && (
+            <div style={{ fontSize: FONT.xs, fontWeight: 700, color: COLORS.danger, marginTop: 4 }}>
+              Pulled from outreach — AI drafts skip this finding
+            </div>
+          )}
         </div>
+        {onToggleIncluded && (
+          <button
+            onClick={() => onToggleIncluded(f)}
+            disabled={busy}
+            title={pulled
+              ? "Put this finding back into outreach drafts"
+              : "Not good enough to send: skip it in AI drafts and flag it as a weak finding for rulebook self-improvement"}
+            style={{ ...(pulled ? smallBtn : smallDangerBtn), flexShrink: 0, ...disabledStyle(busy) }}
+          >
+            {busy ? "…" : pulled ? "Keep" : "Remove from outreach"}
+          </button>
+        )}
       </div>
     </div>
   );

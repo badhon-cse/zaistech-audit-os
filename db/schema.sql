@@ -162,3 +162,43 @@ create index if not exists idx_findings_audit on findings(audit_id);
 create index if not exists idx_leads_status on leads(status);
 create index if not exists idx_leads_domain on leads(domain);
 create index if not exists idx_rulebook_proposals_status on rulebook_proposals(status);
+
+-- ---------------------------------------------------------------------------
+-- MIGRATION (added after the initial schema): per-channel follow-up reminders.
+-- Run this block once in the Supabase SQL editor on an existing database
+-- (safe to re-run: everything is "if not exists").
+--
+-- leads.next_action / next_action_date used to be a single field overwritten
+-- by whichever channel was logged last, so e.g. a LinkedIn touch erased the
+-- pending email follow-up. Now each (lead, channel) keeps its own reminder
+-- here; leads.next_action / next_action_date are kept in sync as a summary
+-- (= the earliest per-channel reminder). Until this block is run, the app
+-- falls back to the old lead-level-only behavior (see lib/followups.js).
+create table if not exists channel_followups (
+  id uuid primary key default gen_random_uuid(),
+  lead_id uuid not null references leads(id) on delete cascade,
+  channel text not null,        -- same values as outreach.channel (Email, LinkedIn DM, ...)
+  step text,                    -- cadence step this reminder is for (follow_up_1 | follow_up_2 | revisit), null if set by hand
+  next_action text,
+  next_action_date date,
+  updated_at timestamptz not null default now(),
+  unique (lead_id, channel)
+);
+
+create index if not exists idx_channel_followups_lead on channel_followups(lead_id);
+
+-- One-time backfill: carry each lead's existing auto-suggested reminder
+-- (next_action text ends in "(<Channel>)", as written by the outreach route)
+-- into channel_followups, so the first new touch on a different channel
+-- after the migration doesn't drop it. Hand-typed reminders without a
+-- "(Channel)" suffix stay lead-level only (the UI still shows them).
+insert into channel_followups (lead_id, channel, next_action, next_action_date)
+select
+  id,
+  substring(next_action from '\(([^()]+)\)\s*$'),
+  nullif(regexp_replace(next_action, '\s*\([^()]+\)\s*$', ''), ''),
+  next_action_date
+from leads
+where next_action ~ '\([^()]+\)\s*$'
+  and status not in ('replied', 'won', 'lost')
+on conflict (lead_id, channel) do nothing;
