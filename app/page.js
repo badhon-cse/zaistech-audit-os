@@ -11,7 +11,17 @@ const STATUS_COLORS = {
   replied: "#0f766e",
   won: "#1a7a3c",
   lost: "#b3261e",
+  failed: "#7f1d1d",
 };
+
+// Matches AUDIT_STALE_MS in lib/audit.js: a lead stuck on "auditing" longer
+// than this is assumed to be from a run that died, so re-running is allowed.
+const AUDIT_STALE_MS = 10 * 60 * 1000;
+function isAuditRunning(lead) {
+  if (lead.status !== "auditing") return false;
+  const startedAt = lead.updated_at ? new Date(lead.updated_at).getTime() : 0;
+  return Date.now() - startedAt < AUDIT_STALE_MS;
+}
 
 export default function Pipeline() {
   const [leads, setLeads] = useState([]);
@@ -34,11 +44,16 @@ export default function Pipeline() {
 
   async function addLead(e) {
     e.preventDefault();
-    await fetch("/api/leads", {
+    const res = await fetch("/api/leads", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert("Could not add lead: " + (err.error || res.statusText));
+      return;
+    }
     setForm({ company: "", domain: "", firstName: "", lastName: "", title: "" });
     setShowNew(false);
     load();
@@ -53,8 +68,8 @@ export default function Pipeline() {
         body: JSON.stringify({ leadId }),
       });
       if (!res.ok) {
-        const err = await res.json();
-        alert("Audit failed: " + err.error);
+        const err = await res.json().catch(() => ({}));
+        alert("Audit failed: " + (err.error || res.statusText));
       }
     } finally {
       setBusyId(null);
@@ -136,13 +151,20 @@ export default function Pipeline() {
                   </span>
                 </td>
                 <td style={td}>
-                  <button
-                    disabled={busyId === l.id}
-                    onClick={() => runAudit(l.id)}
-                    style={{ ...primaryBtn, opacity: busyId === l.id ? 0.6 : 1 }}
-                  >
-                    {busyId === l.id ? "Running…" : "Run audit"}
-                  </button>
+                  {(() => {
+                    // Disabled while this tab's request is in flight AND while the
+                    // server says an audit is running (survives a page refresh).
+                    const running = busyId === l.id || isAuditRunning(l);
+                    return (
+                      <button
+                        disabled={running}
+                        onClick={() => runAudit(l.id)}
+                        style={{ ...primaryBtn, opacity: running ? 0.6 : 1, cursor: running ? "not-allowed" : "pointer" }}
+                      >
+                        {running ? "Running…" : l.status === "failed" ? "Retry audit" : "Run audit"}
+                      </button>
+                    );
+                  })()}
                 </td>
               </tr>
             ))}

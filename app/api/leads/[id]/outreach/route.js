@@ -84,7 +84,7 @@ export async function POST(request, { params }) {
   // only move the lead forward, never backward (e.g. don't downgrade a lead
   // that's already replied/won/lost just because an older touch got logged).
   const { data: lead } = await db.from("leads").select("status").eq("id", params.id).single();
-  const FORWARD_FROM = ["new", "auditing", "needs_review", "audited", "demo_ready"];
+  const FORWARD_FROM = ["new", "auditing", "failed", "needs_review", "audited", "demo_ready"];
   const leadPatch = { updated_at: new Date().toISOString() };
   if (row.status !== "draft" && lead && FORWARD_FROM.includes(lead.status)) {
     leadPatch.status = "outreach_sent";
@@ -98,6 +98,11 @@ export async function POST(request, { params }) {
     const cadence = CHANNEL_CADENCE[channel] || DEFAULT_CADENCE;
     const next = cadence[row.step];
     if (next) {
+      // Stored as a plain UTC calendar date (YYYY-MM-DD). The server has no
+      // idea of the operator's timezone; the tracker page compares this
+      // against the viewer's *local* date (see todayISO in
+      // app/outreach/page.js), so near midnight it can be off by one day
+      // at most, which is fine for a follow-up reminder.
       const dueDate = new Date(Date.now() + next.daysOut * 24 * 60 * 60 * 1000);
       leadPatch.next_action = `${next.label} (${channel})`;
       leadPatch.next_action_date = dueDate.toISOString().slice(0, 10);

@@ -1,10 +1,10 @@
-import { runAudit } from "../../../../lib/audit.js";
+import { runAudit, AuditAlreadyRunningError } from "../../../../lib/audit.js";
 import { supabaseAdmin } from "../../../../lib/supabase.js";
 
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { leadId, allowSignupTest, auditEmail } = body;
+    const { leadId } = body;
     if (!leadId) {
       return Response.json({ error: "leadId is required" }, { status: 400 });
     }
@@ -19,13 +19,14 @@ export async function POST(request) {
 
     const result = await runAudit({
       leadId,
-      allowSignupTest: !!allowSignupTest,
-      auditEmail: auditEmail || null,
       rulebookText: rb?.text || "(no rulebook stored yet -- add one via the Rulebook page)",
     });
 
     return Response.json(result);
   } catch (err) {
+    if (err instanceof AuditAlreadyRunningError) {
+      return Response.json({ error: err.message }, { status: 409 });
+    }
     console.error(err);
     return Response.json({ error: err.message }, { status: 500 });
   }

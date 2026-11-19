@@ -1,4 +1,4 @@
-// One-time (and re-runnable) seed: reads db/rulebook.md from this deployed
+// One-time seed (re-runnable only with { force: true }): reads db/rulebook.md from this deployed
 // instance's own filesystem and inserts it into rulebook_versions. This
 // exists because the rulebook_versions table started out empty -- audits
 // were running against the fallback "(no rulebook stored yet)" text -- and
@@ -9,8 +9,30 @@ import { readFileSync } from "fs";
 import path from "path";
 import { supabaseAdmin } from "../../../../lib/supabase.js";
 
-export async function POST() {
+export async function POST(request) {
   const db = supabaseAdmin();
+
+  // Refuse to re-seed over an existing rulebook unless explicitly forced:
+  // inserting db/rulebook.md as the newest version would silently replace
+  // any changes approved since (via the Rulebook self-improvement page).
+  let force = false;
+  try {
+    const body = await request.json();
+    force = body?.force === true;
+  } catch {
+    // no/invalid JSON body -- treat as not forced
+  }
+  const { data: existing, error: existingErr } = await db.from("rulebook_versions").select("id, version").limit(1);
+  if (existingErr) return Response.json({ error: existingErr.message }, { status: 500 });
+  if (existing?.length && !force) {
+    return Response.json(
+      {
+        error:
+          "A rulebook version already exists. Re-seeding from db/rulebook.md would become the newest version and overwrite any approved rulebook changes. Send { \"force\": true } to do it anyway.",
+      },
+      { status: 409 }
+    );
+  }
   const filePath = path.join(process.cwd(), "db", "rulebook.md");
   let text;
   try {

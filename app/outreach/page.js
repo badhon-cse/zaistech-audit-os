@@ -9,10 +9,24 @@ const CHANNEL_COLORS = {
 const STATUS_COLORS = {
   new: "#9aa5b1", auditing: "#f0a500", needs_review: "#d9822b", audited: "#2f5d8a",
   demo_ready: "#6b4fbb", outreach_sent: "#1f8a70", replied: "#0f766e", won: "#1a7a3c", lost: "#b3261e",
+  failed: "#7f1d1d",
 };
 
+// Today's date as YYYY-MM-DD in the *viewer's local timezone*. This page runs
+// in the operator's browser (Bangladesh, UTC+6), so "due today"/"overdue"
+// must follow their calendar day -- toISOString() would give UTC's date,
+// which is still "yesterday" for the first 6 hours of every local day.
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+// Reads the server's { error } message from a failed response, falling back
+// to the HTTP status text if the body isn't JSON.
+async function errorMessage(res) {
+  const data = await res.json().catch(() => ({}));
+  return data.error || res.statusText || "Request failed (" + res.status + ")";
 }
 
 function urgency(dateStr) {
@@ -55,11 +69,12 @@ export default function OutreachTracker() {
   async function saveNextAction(leadId, patch) {
     setSavingId(leadId);
     try {
-      await fetch(`/api/leads/${leadId}`, {
+      const res = await fetch(`/api/leads/${leadId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(patch),
       });
+      if (!res.ok) alert("Could not save next action: " + (await errorMessage(res)));
       await load();
     } finally {
       setSavingId(null);
@@ -279,6 +294,7 @@ function LeadPanel({ lead, onChange }) {
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState(null);
   const [outcomeBusy, setOutcomeBusy] = useState(false);
+  const [actionError, setActionError] = useState(null);
 
   async function loadHistory() {
     setLoadingHistory(true);
@@ -299,13 +315,16 @@ function LeadPanel({ lead, onChange }) {
   }
 
   async function setOutcome(status) {
+    if (status === "lost" && !window.confirm(`Mark ${lead.company} as lost / no response? This clears any scheduled follow-up.`)) return;
     setOutcomeBusy(true);
+    setActionError(null);
     try {
-      await fetch(`/api/leads/${lead.id}`, {
+      const res = await fetch(`/api/leads/${lead.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
+      if (!res.ok) setActionError("Could not set outcome: " + (await errorMessage(res)));
       await refresh();
     } finally {
       setOutcomeBusy(false);
@@ -335,13 +354,19 @@ function LeadPanel({ lead, onChange }) {
   async function submit(e) {
     e.preventDefault();
     setSaving(true);
+    setActionError(null);
     try {
       const channel = form.channel === "Other" ? (form.customChannel || "Other") : form.channel;
-      await fetch(`/api/leads/${lead.id}/outreach`, {
+      const res = await fetch(`/api/leads/${lead.id}/outreach`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ channel, step: form.step, subject: form.subject, body: form.body, status: form.status }),
       });
+      if (!res.ok) {
+        // Keep the form open with what was typed so nothing is lost.
+        setActionError("Could not log outreach: " + (await errorMessage(res)));
+        return;
+      }
       setForm({ channel: "Email", customChannel: "", step: "first", subject: "", body: "", status: "sent" });
       setShowForm(false);
       await refresh();
@@ -352,12 +377,14 @@ function LeadPanel({ lead, onChange }) {
 
   async function markReplied(id) {
     setBusyId(id);
+    setActionError(null);
     try {
-      await fetch(`/api/outreach/${id}`, {
+      const res = await fetch(`/api/outreach/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "replied" }),
       });
+      if (!res.ok) setActionError("Could not mark replied: " + (await errorMessage(res)));
       await refresh();
     } finally {
       setBusyId(null);
@@ -365,9 +392,12 @@ function LeadPanel({ lead, onChange }) {
   }
 
   async function removeTouch(id) {
+    if (!window.confirm("Delete this logged outreach touch? This can't be undone.")) return;
     setBusyId(id);
+    setActionError(null);
     try {
-      await fetch(`/api/outreach/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/outreach/${id}`, { method: "DELETE" });
+      if (!res.ok) setActionError("Could not delete outreach: " + (await errorMessage(res)));
       await refresh();
     } finally {
       setBusyId(null);
@@ -406,6 +436,7 @@ function LeadPanel({ lead, onChange }) {
         </div>
       </div>
       {genError && <p style={{ color: "#b3261e", fontSize: 13, marginTop: 8 }}>{genError}</p>}
+      {actionError && <p style={{ color: "#b3261e", fontSize: 13, marginTop: 8 }}>{actionError}</p>}
 
       {draft && (
         <div style={{ background: "#fff", border: "1px solid #e6e9ee", borderRadius: 8, padding: 14, marginTop: 10, marginBottom: 14 }}>

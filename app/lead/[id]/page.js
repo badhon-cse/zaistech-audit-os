@@ -25,11 +25,15 @@ export default function LeadDetail({ params }) {
   }, [id]);
 
   async function approve() {
-    await fetch(`/api/leads/${id}`, {
+    const res = await fetch(`/api/leads/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: "audited" }),
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert("Could not approve audit: " + (err.error || res.statusText));
+    }
     load();
   }
 

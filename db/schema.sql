@@ -20,7 +20,7 @@ create table if not exists leads (
   linkedin text,
   instagram text,
   sheet_row_id text,
-  status text not null default 'new', -- new | auditing | needs_review | audited | demo_ready | outreach_sent | replied | won | lost
+  status text not null default 'new', -- new | auditing | needs_review | audited | demo_ready | outreach_sent | replied | won | lost | failed
   owner text,
   next_action text,
   next_action_date date,
