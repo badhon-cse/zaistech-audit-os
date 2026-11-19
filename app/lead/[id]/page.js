@@ -1,5 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
+import {
+  COLORS, FONT, RADIUS, cardStyle as baseCard, tagStyle as tag, primaryBtnLg as primaryBtn, linkBtn, backLink,
+} from "../../../lib/ui.js";
 
 const PAGE_GROUPS = [
   { key: "homepage", label: "Homepage", metricsPage: "homepage" },
@@ -37,8 +40,8 @@ export default function LeadDetail({ params }) {
     load();
   }
 
-  if (loading) return <p style={{ padding: 24, color: "#5b6673" }}>Loading…</p>;
-  if (data.error) return <p style={{ padding: 24 }}>{data.error}</p>;
+  if (loading) return <p style={{ color: COLORS.textSecondary }}>Loading…</p>;
+  if (data.error) return <p>{data.error}</p>;
 
   const { lead, latestAudit, findings, strengths, metrics, inboxChecks } = data;
   const checkoutUpsell = latestAudit?.raw?.scan?.checkoutUpsell || null;
@@ -55,21 +58,23 @@ export default function LeadDetail({ params }) {
   const topScore = metrics.find((m) => m.page === "homepage")?.pagespeed_score;
 
   return (
-    <div style={{ maxWidth: 880, margin: "0 auto", padding: "24px 20px 60px", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+    // Narrower than the layout's 1100px on purpose: this is a long reading
+    // page. Left-aligned so it lines up with the header.
+    <div style={{ maxWidth: 880 }}>
       {lightbox && (
         <div onClick={() => setLightbox(null)} style={lightboxOverlay}>
-          <img src={lightbox} alt="Full screenshot" style={{ maxWidth: "92vw", maxHeight: "92vh", borderRadius: 8, boxShadow: "0 20px 60px rgba(0,0,0,.4)" }} />
+          <img src={lightbox} alt="Full screenshot" style={{ maxWidth: "92vw", maxHeight: "92vh", borderRadius: RADIUS.md, boxShadow: "0 20px 60px rgba(0,0,0,.4)" }} />
         </div>
       )}
 
-      <a href="/" style={{ color: "#2f5d8a", fontSize: 13, textDecoration: "none" }}>
+      <a href="/" style={backLink}>
         ← Back to pipeline
       </a>
 
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginTop: 10, marginBottom: 20, gap: 16 }}>
         <div>
-          <h1 style={{ margin: "0 0 2px", fontSize: 28 }}>{lead.company}</h1>
-          <p style={{ color: "#5b6673", margin: 0, fontSize: 14 }}>
+          <h1 style={{ margin: "0 0 2px", fontSize: FONT.xxl }}>{lead.company}</h1>
+          <p style={{ color: COLORS.textSecondary, margin: 0, fontSize: FONT.md }}>
             {lead.domain} &middot; {[lead.first_name, lead.last_name].filter(Boolean).join(" ")}
             {lead.title ? ` — ${lead.title}` : ""}
           </p>
@@ -77,18 +82,18 @@ export default function LeadDetail({ params }) {
         {topScore != null && (
           <div style={{ textAlign: "center", flexShrink: 0 }}>
             <ScoreRing value={topScore} size={60} />
-            <div style={{ fontSize: 11, color: "#9aa3af", marginTop: 2 }}>Site speed score</div>
+            <div style={{ fontSize: FONT.xs, color: COLORS.muted, marginTop: 2 }}>Site speed score</div>
           </div>
         )}
       </div>
 
-      <p style={{ fontSize: 12.5, color: "#9aa3af", margin: "0 0 20px" }}>
+      <p style={{ fontSize: FONT.sm, color: COLORS.muted, margin: "0 0 20px" }}>
         This page is the audit only. Outreach, drafts, and outcome (replied / won / lost) are on the{" "}
-        <a href="/outreach" style={{ color: "#2f5d8a" }}>outreach tracker</a>.
+        <a href="/outreach" style={{ color: COLORS.primary }}>outreach tracker</a>.
       </p>
 
       {!latestAudit && (
-        <p style={{ color: "#5b6673" }}>No audit yet. Go back to the pipeline and press "Run audit".</p>
+        <p style={{ color: COLORS.textSecondary }}>No audit yet. Go back to the pipeline and press "Run audit".</p>
       )}
 
       {latestAudit && (
@@ -97,10 +102,10 @@ export default function LeadDetail({ params }) {
 
           {strengths.length > 0 && (
             <section style={{ ...cardStyle, background: "#f4faf6", border: "1px solid #d7ecdf" }}>
-              <h3 style={{ ...h3, color: "#1e7a43" }}>✓ Strengths</h3>
+              <h3 style={{ ...h3, color: COLORS.success }}>✓ Strengths</h3>
               <ul style={{ margin: 0, paddingLeft: 18 }}>
                 {strengths.map((s) => (
-                  <li key={s.id} style={{ marginBottom: 4, fontSize: 14 }}>{s.text}</li>
+                  <li key={s.id} style={{ marginBottom: 4, fontSize: FONT.md }}>{s.text}</li>
                 ))}
               </ul>
             </section>
@@ -131,7 +136,7 @@ export default function LeadDetail({ params }) {
                       src={metric.preview_screenshot_base64 || metric.screenshot_base64}
                       alt={`${g.label} screenshot`}
                       onClick={() => setLightbox(metric.screenshot_base64 || metric.preview_screenshot_base64)}
-                      style={{ width: 150, borderRadius: 8, border: "1px solid #e6e9ee", cursor: "zoom-in", flexShrink: 0 }}
+                      style={{ width: 150, borderRadius: RADIUS.md, border: `1px solid ${COLORS.border}`, cursor: "zoom-in", flexShrink: 0 }}
                     />
                   )}
 
@@ -144,7 +149,7 @@ export default function LeadDetail({ params }) {
                       </div>
                     )}
                     {metric && (
-                      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", fontSize: 12.5, color: "#374151", marginBottom: 10 }}>
+                      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", fontSize: FONT.sm, color: COLORS.body, marginBottom: 10 }}>
                         <Metric label="LCP" value={metric.lcp} />
                         <Metric label="CLS" value={metric.cls} />
                         <Metric label="TBT" value={metric.tbt} />
@@ -226,7 +231,7 @@ function FindingRow({ f, metric, onZoom }) {
   const thumbH = crop ? Math.max(46, Math.min(130, Math.round((thumbW * crop.height) / crop.width))) : 0;
 
   return (
-    <div style={{ borderBottom: "1px solid #f0f2f5", padding: "10px 0" }}>
+    <div style={{ borderBottom: `1px solid ${COLORS.divider}`, padding: "10px 0" }}>
       <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
         {crop && (
           <div
@@ -236,8 +241,8 @@ function FindingRow({ f, metric, onZoom }) {
               width: thumbW,
               height: thumbH,
               flexShrink: 0,
-              borderRadius: 6,
-              border: "1px solid #e6e9ee",
+              borderRadius: RADIUS.sm,
+              border: `1px solid ${COLORS.border}`,
               cursor: "zoom-in",
               backgroundImage: `url(${metric.screenshot_base64})`,
               backgroundSize: `${metric.screenshot_width}px ${metric.screenshot_height}px`,
@@ -248,13 +253,13 @@ function FindingRow({ f, metric, onZoom }) {
         )}
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 600, fontSize: 14 }}>
+          <div style={{ fontWeight: 600, fontSize: FONT.md }}>
             <span style={{ ...tag, marginRight: 6 }}>{f.area}</span>
             {f.what}
           </div>
-          <div style={{ fontSize: 13, color: "#5b6673", marginTop: 3 }}>Why it costs money: {f.why}</div>
-          <div style={{ fontSize: 13, color: "#5b6673" }}>Fix: {f.fix}</div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#2f5d8a", marginTop: 2 }}>Service: {f.service}</div>
+          <div style={{ fontSize: FONT.sm, color: COLORS.textSecondary, marginTop: 3 }}>Why it costs money: {f.why}</div>
+          <div style={{ fontSize: FONT.sm, color: COLORS.textSecondary }}>Fix: {f.fix}</div>
+          <div style={{ fontSize: FONT.sm, fontWeight: 600, color: COLORS.primary, marginTop: 2 }}>Service: {f.service}</div>
         </div>
       </div>
     </div>
@@ -264,8 +269,8 @@ function FindingRow({ f, metric, onZoom }) {
 function IssueList({ title, items }) {
   return (
     <div style={{ marginBottom: 10 }}>
-      <div style={{ fontSize: 12, fontWeight: 600, color: "#5b6673", marginBottom: 4 }}>{title}</div>
-      <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#374151" }}>
+      <div style={{ fontSize: FONT.sm, fontWeight: 600, color: COLORS.textSecondary, marginBottom: 4 }}>{title}</div>
+      <ul style={{ margin: 0, paddingLeft: 18, fontSize: FONT.sm, color: COLORS.body }}>
         {items.map((it, i) => <li key={i}>{it}</li>)}
       </ul>
     </div>
@@ -334,20 +339,20 @@ function LiveEmailTestControls({ leadId, onChange }) {
 
   if (!info.configured) {
     return (
-      <p style={{ fontSize: 12, color: "#9aa3af", margin: "4px 0 0" }}>
+      <p style={{ fontSize: FONT.sm, color: COLORS.muted, margin: "4px 0 0" }}>
         Live inbox confirmation isn't set up yet (needs AUDIT_INBOX_EMAIL / AUDIT_INBOX_APP_PASSWORD).
       </p>
     );
   }
 
   return (
-    <div style={{ fontSize: 12.5, color: "#5b6673", marginTop: 4 }}>
-      Test email for this lead: <code style={{ background: "#f0f2f5", padding: "1px 5px", borderRadius: 4 }}>{info.testEmail}</code>
+    <div style={{ fontSize: FONT.sm, color: COLORS.textSecondary, marginTop: 4 }}>
+      Test email for this lead: <code style={{ background: COLORS.divider, padding: "1px 5px", borderRadius: RADIUS.sm }}>{info.testEmail}</code>
       <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
-        <button onClick={() => trigger("welcome")} disabled={busy} style={linkBtnSmall}>
+        <button onClick={() => trigger("welcome")} disabled={busy} style={linkBtn}>
           {busy === "welcome" ? "…" : "Mark welcome signup just done"}
         </button>
-        <button onClick={() => trigger("abandoned_cart")} disabled={busy} style={linkBtnSmall}>
+        <button onClick={() => trigger("abandoned_cart")} disabled={busy} style={linkBtn}>
           {busy === "abandoned_cart" ? "…" : "Mark cart abandoned just now"}
         </button>
       </div>
@@ -368,15 +373,15 @@ function VerdictRow({ label, verdict, note }) {
   const c = colors[verdict] || colors.not_applicable;
   return (
     <div style={{ marginBottom: 8 }}>
-      <span style={{ fontWeight: 600, fontSize: 13.5 }}>{label}: </span>
-      <span style={{ background: c.bg, color: c.fg, borderRadius: 5, padding: "2px 8px", fontSize: 12, fontWeight: 600 }}>{c.text}</span>
-      {note && <div style={{ fontSize: 12.5, color: "#5b6673", marginTop: 2 }}>{note}</div>}
+      <span style={{ fontWeight: 600, fontSize: FONT.md }}>{label}: </span>
+      <span style={{ background: c.bg, color: c.fg, borderRadius: RADIUS.sm, padding: "2px 8px", fontSize: FONT.xs, fontWeight: 600 }}>{c.text}</span>
+      {note && <div style={{ fontSize: FONT.sm, color: COLORS.textSecondary, marginTop: 2 }}>{note}</div>}
     </div>
   );
 }
 
 function scoreColor(v) {
-  if (v == null) return "#9aa3af";
+  if (v == null) return COLORS.muted;
   if (v >= 90) return "#16a34a";
   if (v >= 50) return "#d97706";
   return "#dc2626";
@@ -400,7 +405,7 @@ function ScoreBadge({ label, value }) {
   return (
     <div style={{ textAlign: "center" }}>
       <ScoreRing value={value} size={46} />
-      <div style={{ fontSize: 11, color: "#5b6673", marginTop: 4 }}>{label}</div>
+      <div style={{ fontSize: FONT.xs, color: COLORS.textSecondary, marginTop: 4 }}>{label}</div>
     </div>
   );
 }
@@ -408,15 +413,12 @@ function ScoreBadge({ label, value }) {
 function Metric({ label, value }) {
   return (
     <div>
-      <span style={{ color: "#9aa3af" }}>{label}:</span>{" "}
+      <span style={{ color: COLORS.muted }}>{label}:</span>{" "}
       <span style={{ fontWeight: 600 }}>{value ?? "—"}</span>
     </div>
   );
 }
 
-const cardStyle = { background: "#fff", borderRadius: 12, border: "1px solid #e6e9ee", padding: 18, marginBottom: 16, boxShadow: "0 1px 2px rgba(16,24,40,.03)" };
-const h3 = { marginTop: 0, marginBottom: 12, fontSize: 13, color: "#5b6673", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 };
-const primaryBtn = { background: "#2f5d8a", color: "#fff", border: "none", borderRadius: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer" };
-const linkBtnSmall = { background: "none", border: "none", color: "#2f5d8a", fontSize: 12, cursor: "pointer", padding: 0 };
-const tag = { background: "#eef2f7", color: "#5b6673", fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", borderRadius: 4, padding: "2px 6px" };
+const cardStyle = { ...baseCard, padding: 18, marginBottom: 16, boxShadow: "0 1px 2px rgba(16,24,40,.03)" };
+const h3 = { marginTop: 0, marginBottom: 12, fontSize: FONT.sm, color: COLORS.textSecondary, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 };
 const lightboxOverlay = { position: "fixed", inset: 0, background: "rgba(16,20,26,.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, cursor: "zoom-out" };

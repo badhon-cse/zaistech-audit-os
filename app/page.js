@@ -1,18 +1,9 @@
 "use client";
-import { useEffect, useState } from "react";
-
-const STATUS_COLORS = {
-  new: "#9aa5b1",
-  auditing: "#f0a500",
-  needs_review: "#d9822b",
-  audited: "#2f5d8a",
-  demo_ready: "#6b4fbb",
-  outreach_sent: "#1f8a70",
-  replied: "#0f766e",
-  won: "#1a7a3c",
-  lost: "#b3261e",
-  failed: "#7f1d1d",
-};
+import { useEffect, useId, useState } from "react";
+import {
+  COLORS, FONT, cardStyle, tileStyle, th, td, rowDivider, statusBadge,
+  primaryBtn, outlineBtn, disabledStyle, inputStyle, labelStyle, linkStyle,
+} from "../lib/ui.js";
 
 // Matches AUDIT_STALE_MS in lib/audit.js: a lead stuck on "auditing" longer
 // than this is assumed to be from a run that died, so re-running is allowed.
@@ -29,6 +20,7 @@ export default function Pipeline() {
   const [showNew, setShowNew] = useState(false);
   const [form, setForm] = useState({ company: "", domain: "", firstName: "", lastName: "", title: "" });
   const [busyId, setBusyId] = useState(null);
+  const fid = useId();
 
   async function load() {
     setLoading(true);
@@ -87,24 +79,24 @@ export default function Pipeline() {
       <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
         {Object.entries(counts).map(([status, n]) => (
           <div key={status} style={tileStyle}>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>{n}</div>
-            <div style={{ fontSize: 12, color: "#5b6673", textTransform: "capitalize" }}>
+            <div style={{ fontSize: FONT.xxl, fontWeight: 700 }}>{n}</div>
+            <div style={{ fontSize: FONT.sm, color: COLORS.textSecondary, textTransform: "capitalize" }}>
               {status.replace("_", " ")}
             </div>
           </div>
         ))}
         {leads.length === 0 && !loading && (
-          <div style={{ color: "#5b6673" }}>No leads yet -- add one to run your first audit.</div>
+          <div style={{ color: COLORS.textSecondary }}>No leads yet -- add one to run your first audit.</div>
         )}
       </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>Pipeline</h2>
+        <h2 style={{ margin: 0, fontSize: FONT.lg }}>Pipeline</h2>
         <div style={{ display: "flex", gap: 8 }}>
-          <a href="/outreach" style={{ ...primaryBtn, textDecoration: "none", display: "inline-block" }}>
+          <a href="/outreach" style={primaryBtn}>
             Outreach tracker
           </a>
-          <a href="/rulebook" style={{ ...primaryBtn, background: "#fff", color: "#2f5d8a", border: "1px solid #2f5d8a", textDecoration: "none", display: "inline-block" }}>
+          <a href="/rulebook" style={{ ...outlineBtn, padding: primaryBtn.padding, borderRadius: primaryBtn.borderRadius }}>
             Rulebook self-improvement
           </a>
           <button style={primaryBtn} onClick={() => setShowNew((s) => !s)}>
@@ -114,20 +106,36 @@ export default function Pipeline() {
       </div>
 
       {showNew && (
-        <form onSubmit={addLead} style={{ ...cardStyle, marginBottom: 16, display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr" }}>
-          <input required placeholder="Company" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} style={inputStyle} />
-          <input required placeholder="Domain (e.g. example.com)" value={form.domain} onChange={(e) => setForm({ ...form, domain: e.target.value })} style={inputStyle} />
-          <input placeholder="First name" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} style={inputStyle} />
-          <input placeholder="Last name" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} style={inputStyle} />
-          <input placeholder="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} style={inputStyle} />
-          <button type="submit" style={primaryBtn}>Save lead</button>
+        <form onSubmit={addLead} style={{ ...cardStyle, marginBottom: 16, display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr", alignItems: "end" }}>
+          {[
+            { key: "company", label: "Company", placeholder: "Acme Store", required: true },
+            { key: "domain", label: "Domain", placeholder: "example.com", required: true },
+            { key: "firstName", label: "First name", placeholder: "" },
+            { key: "lastName", label: "Last name", placeholder: "" },
+            { key: "title", label: "Title", placeholder: "e.g. Founder" },
+          ].map((f) => (
+            <div key={f.key}>
+              <label htmlFor={`${fid}-${f.key}`} style={labelStyle}>
+                {f.label}{f.required ? " *" : ""}
+              </label>
+              <input
+                id={`${fid}-${f.key}`}
+                required={f.required}
+                placeholder={f.placeholder}
+                value={form[f.key]}
+                onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                style={{ ...inputStyle, width: "100%" }}
+              />
+            </div>
+          ))}
+          <button type="submit" style={{ ...primaryBtn, justifySelf: "start" }}>Save lead</button>
         </form>
       )}
 
       <div style={cardStyle}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: FONT.md }}>
           <thead>
-            <tr style={{ textAlign: "left", color: "#5b6673", borderBottom: "1px solid #e6e9ee" }}>
+            <tr style={{ color: COLORS.textSecondary }}>
               <th style={th}>Company</th>
               <th style={th}>Domain</th>
               <th style={th}>Contact</th>
@@ -137,16 +145,16 @@ export default function Pipeline() {
           </thead>
           <tbody>
             {leads.map((l) => (
-              <tr key={l.id} style={{ borderBottom: "1px solid #f0f2f5" }}>
+              <tr key={l.id} style={rowDivider}>
                 <td style={td}>
-                  <a href={`/lead/${l.id}`} style={{ color: "#2f5d8a", textDecoration: "none", fontWeight: 600 }}>
+                  <a href={`/lead/${l.id}`} style={{ ...linkStyle, fontWeight: 600 }}>
                     {l.company}
                   </a>
                 </td>
                 <td style={td}>{l.domain}</td>
                 <td style={td}>{[l.first_name, l.last_name].filter(Boolean).join(" ") || "—"}</td>
                 <td style={td}>
-                  <span style={{ ...badge, background: (STATUS_COLORS[l.status] || "#9aa5b1") + "22", color: STATUS_COLORS[l.status] || "#5b6673" }}>
+                  <span style={statusBadge(l.status)}>
                     {l.status.replace("_", " ")}
                   </span>
                 </td>
@@ -159,7 +167,7 @@ export default function Pipeline() {
                       <button
                         disabled={running}
                         onClick={() => runAudit(l.id)}
-                        style={{ ...primaryBtn, opacity: running ? 0.6 : 1, cursor: running ? "not-allowed" : "pointer" }}
+                        style={{ ...primaryBtn, ...disabledStyle(running) }}
                       >
                         {running ? "Running…" : l.status === "failed" ? "Retry audit" : "Run audit"}
                       </button>
@@ -174,11 +182,3 @@ export default function Pipeline() {
     </div>
   );
 }
-
-const tileStyle = { background: "#fff", borderRadius: 10, padding: "12px 16px", border: "1px solid #e6e9ee", minWidth: 90 };
-const cardStyle = { background: "#fff", borderRadius: 10, border: "1px solid #e6e9ee", padding: 16 };
-const th = { padding: "8px 10px", fontWeight: 600 };
-const td = { padding: "10px 10px" };
-const badge = { padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 600, textTransform: "capitalize" };
-const primaryBtn = { background: "#2f5d8a", color: "#fff", border: "none", borderRadius: 7, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer" };
-const inputStyle = { padding: "8px 10px", borderRadius: 7, border: "1px solid #d7dce2", fontSize: 14 };

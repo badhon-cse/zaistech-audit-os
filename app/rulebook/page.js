@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { COLORS } from "../../lib/ui.js";
 
 export default function RulebookProposals() {
   const [proposals, setProposals] = useState([]);
@@ -54,7 +55,9 @@ export default function RulebookProposals() {
   const decided = proposals.filter((p) => p.status !== "pending");
 
   return (
-    <div style={{ maxWidth: 860, margin: "0 auto", padding: "24px 20px 60px", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+    // Narrower than the layout's 1100px on purpose (reading page); the layout
+    // supplies the outer padding and font.
+    <div style={{ maxWidth: 860 }}>
       <a href="/" style={{ color: "#2f5d8a", fontSize: 13, textDecoration: "none" }}>
         ← Back to pipeline
       </a>
@@ -82,7 +85,7 @@ export default function RulebookProposals() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
             <div>
               <span style={badgeStyle}>PENDING</span>
-              <span style={{ fontSize: 12, color: "#9aa3af", marginLeft: 8 }}>
+              <span style={{ fontSize: 12, color: COLORS.muted, marginLeft: 8 }}>
                 based on {p.lead_count} outcome-tagged leads · {new Date(p.created_at).toLocaleString()}
               </span>
             </div>
@@ -124,7 +127,7 @@ export default function RulebookProposals() {
               <span style={{ ...badgeStyle, background: p.status === "approved" ? "#1a7a3c" : "#b3261e" }}>
                 {p.status.toUpperCase()}
               </span>
-              <span style={{ fontSize: 12, color: "#9aa3af", marginLeft: 8 }}>
+              <span style={{ fontSize: 12, color: COLORS.muted, marginLeft: 8 }}>
                 {new Date(p.created_at).toLocaleString()}
               </span>
               <p style={{ fontSize: 13.5, marginTop: 8 }}>{p.summary}</p>

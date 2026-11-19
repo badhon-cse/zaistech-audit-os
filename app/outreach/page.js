@@ -1,16 +1,10 @@
 "use client";
-import { useEffect, useState } from "react";
-
-const CHANNELS = ["Email", "LinkedIn DM", "Instagram DM", "Facebook DM", "WhatsApp", "Other"];
-const CHANNEL_COLORS = {
-  Email: "#2f5d8a", "LinkedIn DM": "#0a66c2", "Instagram DM": "#c13584",
-  "Facebook DM": "#1877f2", WhatsApp: "#25d366", Other: "#6b7280",
-};
-const STATUS_COLORS = {
-  new: "#9aa5b1", auditing: "#f0a500", needs_review: "#d9822b", audited: "#2f5d8a",
-  demo_ready: "#6b4fbb", outreach_sent: "#1f8a70", replied: "#0f766e", won: "#1a7a3c", lost: "#b3261e",
-  failed: "#7f1d1d",
-};
+import { useEffect, useId, useState } from "react";
+import {
+  COLORS, FONT, RADIUS, CHANNELS, STATUS_COLORS, statusColor, statusBadge, solidBadge, channelBadge,
+  th, tdTop as td, rowDivider, inputStyle, selectStyle, labelStyle, errorText, backLink, h1Style, tileStyle,
+  primaryBtnLg, secondaryBtn, outlineBtn, dangerBtn, smallBtn, smallDangerBtn, toggleBtn, toggleBtnActive, linkBtn,
+} from "../../lib/ui.js";
 
 // Today's date as YYYY-MM-DD in the *viewer's local timezone*. This page runs
 // in the operator's browser (Bangladesh, UTC+6), so "due today"/"overdue"
@@ -81,7 +75,7 @@ export default function OutreachTracker() {
     }
   }
 
-  if (loading) return <p style={{ padding: 24, color: "#5b6673" }}>Loading…</p>;
+  if (loading) return <p style={{ color: COLORS.textSecondary }}>Loading…</p>;
 
   const contacted = (leads || []).filter((l) => l.touchCount > 0);
   const notContacted = (leads || []).filter((l) => l.touchCount === 0);
@@ -107,11 +101,11 @@ export default function OutreachTracker() {
   }
 
   return (
-    <div style={{ maxWidth: 1040, margin: "0 auto", padding: "24px 20px 60px", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
-      <a href="/" style={{ color: "#2f5d8a", fontSize: 13, textDecoration: "none" }}>← Back to pipeline</a>
+    <div>
+      <a href="/" style={backLink}>← Back to pipeline</a>
 
-      <h1 style={{ fontSize: 24, margin: "10px 0 4px" }}>Outreach tracker</h1>
-      <p style={{ color: "#5b6673", fontSize: 14, marginTop: 0 }}>
+      <h1 style={h1Style}>Outreach tracker</h1>
+      <p style={{ color: COLORS.textSecondary, fontSize: FONT.md, marginTop: 0 }}>
         Who's been contacted, on which channel, when the next follow-up is due, and the place to draft and log every
         touch. (Audits live on each lead's own page — this page is outreach only.)
       </p>
@@ -119,13 +113,13 @@ export default function OutreachTracker() {
       <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
         <Tile n={overdueCount} label="Overdue" color="#b42318" />
         <Tile n={todayCount} label="Due today" color="#9a6700" />
-        <Tile n={contacted.length} label="Contacted" color="#2f5d8a" />
-        <Tile n={notContacted.length} label="Not contacted yet" color="#9aa5b1" />
+        <Tile n={contacted.length} label="Contacted" color={STATUS_COLORS.outreach_sent} />
+        <Tile n={notContacted.length} label="Not contacted yet" color={COLORS.muted} />
       </div>
 
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5 }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: FONT.md }}>
         <thead>
-          <tr style={{ textAlign: "left", color: "#9aa3af", fontSize: 11, textTransform: "uppercase" }}>
+          <tr style={{ color: COLORS.muted, fontSize: FONT.xs, textTransform: "uppercase" }}>
             <th style={th}>Lead</th>
             <th style={th}>Channels</th>
             <th style={th}>Last touch</th>
@@ -152,8 +146,8 @@ export default function OutreachTracker() {
 
       {notContacted.length > 0 && (
         <>
-          <h3 style={{ fontSize: 14, color: "#5b6673", marginTop: 28 }}>Not contacted yet</h3>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5 }}>
+          <h3 style={{ fontSize: FONT.md, color: COLORS.textSecondary, marginTop: 28 }}>Not contacted yet</h3>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: FONT.md }}>
             <tbody>
               {notContacted.map((lead) => (
                 <NotContactedRow
@@ -177,41 +171,44 @@ function TrackerRow({ lead, onSave, busy, expanded, onToggle, onPanelChange }) {
   const [actionDate, setActionDate] = useState(lead.next_action_date || "");
   const u = urgency(lead.next_action_date);
   const us = u ? URGENCY_STYLE[u] : null;
+  const fid = useId();
 
   return (
     <>
-      <tr style={{ borderBottom: expanded ? "none" : "1px solid #f0f2f5" }}>
+      <tr style={expanded ? undefined : rowDivider}>
         <td style={td}>
           <div style={{ fontWeight: 600 }}>{lead.company}</div>
-          <div style={{ fontSize: 12, color: "#9aa3af" }}>
+          <div style={{ fontSize: FONT.sm, color: COLORS.muted }}>
             {[lead.first_name, lead.last_name].filter(Boolean).join(" ")}{lead.title ? ` — ${lead.title}` : ""}
           </div>
         </td>
         <td style={td}>
           {lead.channelsUsed.map((c) => (
-            <span key={c} style={{ ...channelBadge, background: CHANNEL_COLORS[c] || "#6b7280", marginRight: 4 }}>{c}</span>
+            <span key={c} style={{ ...channelBadge(c), marginRight: 4, marginBottom: 2 }}>{c}</span>
           ))}
         </td>
         <td style={td}>
           {lead.lastTouch ? (
             <>
               <div>{lead.lastTouch.channel} · {(lead.lastTouch.step || "first").replace(/_/g, " ")}</div>
-              <div style={{ fontSize: 12, color: "#9aa3af" }}>
+              <div style={{ fontSize: FONT.sm, color: COLORS.muted }}>
                 {lead.lastTouch.sent_at ? new Date(lead.lastTouch.sent_at).toLocaleDateString() : "draft, not sent"}
-                {lead.lastTouch.status === "replied" && <span style={{ color: "#0f766e", fontWeight: 700 }}> · replied</span>}
+                {lead.lastTouch.status === "replied" && <span style={{ color: STATUS_COLORS.replied, fontWeight: 700 }}> · replied</span>}
               </div>
             </>
           ) : (
-            <span style={{ color: "#9aa3af" }}>—</span>
+            <span style={{ color: COLORS.muted }}>—</span>
           )}
         </td>
         <td style={td}>
-          <span style={{ ...statusBadge, background: (STATUS_COLORS[lead.status] || "#9aa5b1") + "22", color: STATUS_COLORS[lead.status] || "#9aa5b1" }}>
+          <span style={statusBadge(lead.status)}>
             {lead.status.replace("_", " ")}
           </span>
         </td>
         <td style={td}>
+          <label htmlFor={`${fid}-action`} style={labelStyle}>Next action</label>
           <input
+            id={`${fid}-action`}
             value={actionText}
             onChange={(e) => setActionText(e.target.value)}
             onBlur={() => actionText !== (lead.next_action || "") && onSave(lead.id, { next_action: actionText || null })}
@@ -221,7 +218,9 @@ function TrackerRow({ lead, onSave, busy, expanded, onToggle, onPanelChange }) {
           />
         </td>
         <td style={td}>
+          <label htmlFor={`${fid}-date`} style={labelStyle}>Due date</label>
           <input
+            id={`${fid}-date`}
             type="date"
             value={actionDate}
             onChange={(e) => setActionDate(e.target.value)}
@@ -230,18 +229,18 @@ function TrackerRow({ lead, onSave, busy, expanded, onToggle, onPanelChange }) {
             disabled={busy}
           />
           {us && (
-            <div style={{ fontSize: 11, fontWeight: 700, color: us.fg, marginTop: 3 }}>{us.label}</div>
+            <div style={{ fontSize: FONT.xs, fontWeight: 700, color: us.fg, marginTop: 3 }}>{us.label}</div>
           )}
         </td>
         <td style={td}>
-          <button onClick={onToggle} style={expanded ? openBtnActive : openBtn}>
+          <button onClick={onToggle} style={expanded ? toggleBtnActive : toggleBtn}>
             {expanded ? "Hide ▴" : "Manage ▾"}
           </button>
         </td>
       </tr>
       {expanded && (
-        <tr style={{ borderBottom: "1px solid #f0f2f5" }}>
-          <td style={{ ...td, background: "#fafbfc" }} colSpan={7}>
+        <tr style={rowDivider}>
+          <td style={{ ...td, background: COLORS.panelBg }} colSpan={7}>
             <LeadPanel lead={lead} onChange={onPanelChange} />
           </td>
         </tr>
@@ -253,25 +252,25 @@ function TrackerRow({ lead, onSave, busy, expanded, onToggle, onPanelChange }) {
 function NotContactedRow({ lead, expanded, onToggle, onPanelChange }) {
   return (
     <>
-      <tr style={{ borderBottom: expanded ? "none" : "1px solid #f0f2f5" }}>
+      <tr style={expanded ? undefined : rowDivider}>
         <td style={td}>
           <div style={{ fontWeight: 600 }}>{lead.company}</div>
-          <div style={{ fontSize: 12, color: "#9aa3af" }}>{lead.domain}</div>
+          <div style={{ fontSize: FONT.sm, color: COLORS.muted }}>{lead.domain}</div>
         </td>
         <td style={td} colSpan={3}>
-          <span style={{ ...statusBadge, background: (STATUS_COLORS[lead.status] || "#9aa5b1") + "22", color: STATUS_COLORS[lead.status] || "#9aa5b1" }}>
+          <span style={statusBadge(lead.status)}>
             {lead.status.replace("_", " ")}
           </span>
         </td>
         <td style={td}>
-          <button onClick={onToggle} style={expanded ? openBtnActive : openBtn}>
+          <button onClick={onToggle} style={expanded ? toggleBtnActive : toggleBtn}>
             {expanded ? "Hide ▴" : "Manage ▾"}
           </button>
         </td>
       </tr>
       {expanded && (
-        <tr style={{ borderBottom: "1px solid #f0f2f5" }}>
-          <td style={{ ...td, background: "#fafbfc" }} colSpan={5}>
+        <tr style={rowDivider}>
+          <td style={{ ...td, background: COLORS.panelBg }} colSpan={5}>
             <LeadPanel lead={lead} onChange={onPanelChange} />
           </td>
         </tr>
@@ -295,6 +294,7 @@ function LeadPanel({ lead, onChange }) {
   const [genError, setGenError] = useState(null);
   const [outcomeBusy, setOutcomeBusy] = useState(false);
   const [actionError, setActionError] = useState(null);
+  const fid = useId();
 
   async function loadHistory() {
     setLoadingHistory(true);
@@ -407,145 +407,171 @@ function LeadPanel({ lead, onChange }) {
   return (
     <div style={{ padding: "6px 2px 10px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
-        <span style={{ fontSize: 12.5, color: "#5b6673" }}>Outcome:</span>
-        <span style={{ ...outcomeBadge, background: STATUS_COLORS[lead.status] || "#9aa5b1" }}>
+        <span style={{ fontSize: FONT.sm, color: COLORS.textSecondary }}>Outcome:</span>
+        <span style={solidBadge(statusColor(lead.status))}>
           {lead.status.replace("_", " ")}
         </span>
-        <span style={{ fontSize: 11.5, color: "#9aa3af" }}>
-          (feeds the <a href="/rulebook" style={{ color: "#2f5d8a" }}>rulebook self-improvement</a> loop)
+        <span style={{ fontSize: FONT.xs, color: COLORS.muted }}>
+          (feeds the <a href="/rulebook" style={{ color: COLORS.primary }}>rulebook self-improvement</a> loop)
         </span>
         <div style={{ display: "flex", gap: 6, marginLeft: "auto", flexWrap: "wrap" }}>
-          <button onClick={() => setOutcome("outreach_sent")} disabled={outcomeBusy} style={outcomeBtn}>Outreach sent</button>
-          <button onClick={() => setOutcome("replied")} disabled={outcomeBusy} style={outcomeBtn}>Replied</button>
-          <button onClick={() => setOutcome("won")} disabled={outcomeBusy} style={{ ...outcomeBtn, borderColor: "#1a7a3c", color: "#1a7a3c" }}>Won client</button>
-          <button onClick={() => setOutcome("lost")} disabled={outcomeBusy} style={{ ...outcomeBtn, borderColor: "#b3261e", color: "#b3261e" }}>Lost / no response</button>
+          <button onClick={() => setOutcome("outreach_sent")} disabled={outcomeBusy} style={secondaryBtn}>Outreach sent</button>
+          <button onClick={() => setOutcome("replied")} disabled={outcomeBusy} style={secondaryBtn}>Replied</button>
+          <button onClick={() => setOutcome("won")} disabled={outcomeBusy} style={{ ...secondaryBtn, borderColor: STATUS_COLORS.won, color: STATUS_COLORS.won }}>Won client</button>
+          <button onClick={() => setOutcome("lost")} disabled={outcomeBusy} style={dangerBtn}>Lost / no response</button>
         </div>
       </div>
 
-      <a href={`/lead/${lead.id}`} style={{ fontSize: 12, color: "#2f5d8a" }}>View audit findings for this lead ↗</a>
+      <a href={`/lead/${lead.id}`} style={{ fontSize: FONT.sm, color: COLORS.primary }}>View audit findings for this lead ↗</a>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 16 }}>
-        <strong style={{ fontSize: 13, color: "#374151" }}>Outreach history</strong>
+        <strong style={{ fontSize: FONT.sm, color: COLORS.body }}>Outreach history</strong>
         <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={generateDraft} disabled={generating} style={{ ...outcomeBtn, fontWeight: 600, borderColor: "#2f5d8a", color: "#2f5d8a" }}>
+          <button onClick={generateDraft} disabled={generating} style={outlineBtn}>
             {generating ? "Writing…" : "✎ Generate draft (AI)"}
           </button>
-          <button onClick={() => setShowForm((s) => !s)} style={{ ...outcomeBtn, fontWeight: 600 }}>
+          <button onClick={() => setShowForm((s) => !s)} style={{ ...secondaryBtn, fontWeight: 600 }}>
             {showForm ? "Cancel" : "+ Log outreach"}
           </button>
         </div>
       </div>
-      {genError && <p style={{ color: "#b3261e", fontSize: 13, marginTop: 8 }}>{genError}</p>}
-      {actionError && <p style={{ color: "#b3261e", fontSize: 13, marginTop: 8 }}>{actionError}</p>}
+      {genError && <p style={errorText}>{genError}</p>}
+      {actionError && <p style={errorText}>{actionError}</p>}
 
       {draft && (
-        <div style={{ background: "#fff", border: "1px solid #e6e9ee", borderRadius: 8, padding: 14, marginTop: 10, marginBottom: 14 }}>
+        <div style={{ ...panelStyle, padding: 14, marginTop: 10, marginBottom: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <strong style={{ fontSize: 13 }}>AI draft — review before sending</strong>
-            <button onClick={() => setDraft(null)} style={linkBtnSmall}>Dismiss</button>
+            <strong style={{ fontSize: FONT.sm }}>AI draft — review before sending</strong>
+            <button onClick={() => setDraft(null)} style={linkBtn}>Dismiss</button>
           </div>
 
+          {/* Copy gives the full text for pasting elsewhere; the first-touch
+              email has a subject, so it's included as a "Subject:" line. */}
           <DraftBlock
             title="Cold email — first touch"
             onUse={() => useDraft({ channel: "Email", step: "first", subject: draft.email.subject, body: draft.email.body })}
+            copyText={`Subject: ${draft.email.subject}\n\n${draft.email.body}`}
           >
-            <div style={{ fontWeight: 600, fontSize: 13 }}>Subject: {draft.email.subject}</div>
-            <div style={{ whiteSpace: "pre-wrap", fontSize: 13, marginTop: 4 }}>{draft.email.body}</div>
+            <div style={{ fontWeight: 600, fontSize: FONT.sm }}>Subject: {draft.email.subject}</div>
+            <div style={{ ...draftText, marginTop: 4 }}>{draft.email.body}</div>
           </DraftBlock>
 
           <DraftBlock
             title="Email follow-up 1 (day 3)"
             onUse={() => useDraft({ channel: "Email", step: "follow_up_1", body: draft.email.followUp1 })}
+            copyText={draft.email.followUp1}
           >
-            <div style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{draft.email.followUp1}</div>
+            <div style={draftText}>{draft.email.followUp1}</div>
           </DraftBlock>
 
           <DraftBlock
             title="Email follow-up 2 (day 7)"
             onUse={() => useDraft({ channel: "Email", step: "follow_up_2", body: draft.email.followUp2 })}
+            copyText={draft.email.followUp2}
           >
-            <div style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{draft.email.followUp2}</div>
+            <div style={draftText}>{draft.email.followUp2}</div>
           </DraftBlock>
 
           <DraftBlock
             title="LinkedIn — connection note"
             onUse={() => useDraft({ channel: "LinkedIn DM", step: "first", body: draft.linkedin.connectionNote })}
+            copyText={draft.linkedin.connectionNote}
           >
-            <div style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{draft.linkedin.connectionNote}</div>
+            <div style={draftText}>{draft.linkedin.connectionNote}</div>
           </DraftBlock>
 
           <DraftBlock
             title="LinkedIn — message after accept"
             onUse={() => useDraft({ channel: "LinkedIn DM", step: "follow_up_1", body: draft.linkedin.message })}
+            copyText={draft.linkedin.message}
           >
-            <div style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{draft.linkedin.message}</div>
+            <div style={draftText}>{draft.linkedin.message}</div>
           </DraftBlock>
 
           <DraftBlock
             title="Instagram / Facebook DM"
             onUse={() => useDraft({ channel: "Instagram DM", step: "first", body: draft.instagram.dm })}
+            copyText={draft.instagram.dm}
             last
           >
-            <div style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{draft.instagram.dm}</div>
+            <div style={draftText}>{draft.instagram.dm}</div>
           </DraftBlock>
         </div>
       )}
 
       {showForm && (
-        <form onSubmit={submit} style={{ display: "grid", gap: 8, marginBottom: 14, marginTop: 10, background: "#fff", border: "1px solid #e6e9ee", borderRadius: 8, padding: 12 }}>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <select value={form.channel} onChange={(e) => setForm({ ...form, channel: e.target.value })} style={selectStyle}>
-              {CHANNELS.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
+        <form onSubmit={submit} style={{ ...panelStyle, display: "grid", gap: 8, marginBottom: 14, marginTop: 10, padding: 12 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
+            <div>
+              <label htmlFor={`${fid}-channel`} style={labelStyle}>Channel</label>
+              <select id={`${fid}-channel`} value={form.channel} onChange={(e) => setForm({ ...form, channel: e.target.value })} style={selectStyle}>
+                {CHANNELS.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
             {form.channel === "Other" && (
-              <input placeholder="Channel name" value={form.customChannel} onChange={(e) => setForm({ ...form, customChannel: e.target.value })} style={{ ...inputStyle, maxWidth: 160 }} />
+              <div>
+                <label htmlFor={`${fid}-custom`} style={labelStyle}>Channel name</label>
+                <input id={`${fid}-custom`} placeholder="e.g. TikTok" value={form.customChannel} onChange={(e) => setForm({ ...form, customChannel: e.target.value })} style={{ ...inputStyle, maxWidth: 160 }} />
+              </div>
             )}
-            <select value={form.step} onChange={(e) => setForm({ ...form, step: e.target.value })} style={selectStyle}>
-              <option value="first">First touch</option>
-              <option value="follow_up_1">Follow-up 1</option>
-              <option value="follow_up_2">Follow-up 2</option>
-              <option value="follow_up_3">Follow-up 3+</option>
-            </select>
-            <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} style={selectStyle}>
-              <option value="sent">Sent</option>
-              <option value="draft">Draft (not sent yet)</option>
-            </select>
+            <div>
+              <label htmlFor={`${fid}-step`} style={labelStyle}>Step</label>
+              <select id={`${fid}-step`} value={form.step} onChange={(e) => setForm({ ...form, step: e.target.value })} style={selectStyle}>
+                <option value="first">First touch</option>
+                <option value="follow_up_1">Follow-up 1</option>
+                <option value="follow_up_2">Follow-up 2</option>
+                <option value="follow_up_3">Follow-up 3+</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor={`${fid}-status`} style={labelStyle}>Status</label>
+              <select id={`${fid}-status`} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} style={selectStyle}>
+                <option value="sent">Sent</option>
+                <option value="draft">Draft (not sent yet)</option>
+              </select>
+            </div>
           </div>
           {form.channel === "Email" && (
-            <input placeholder="Subject line" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} style={inputStyle} />
+            <div>
+              <label htmlFor={`${fid}-subject`} style={labelStyle}>Subject line</label>
+              <input id={`${fid}-subject`} value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} style={{ ...inputStyle, width: "100%" }} />
+            </div>
           )}
-          <textarea required placeholder="Message body" value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} rows={4} style={{ ...inputStyle, fontFamily: "inherit" }} />
-          <button type="submit" disabled={saving} style={{ ...primaryBtn, width: "fit-content" }}>
+          <div>
+            <label htmlFor={`${fid}-body`} style={labelStyle}>Message body *</label>
+            <textarea id={`${fid}-body`} required value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} rows={4} style={{ ...inputStyle, width: "100%" }} />
+          </div>
+          <button type="submit" disabled={saving} style={{ ...primaryBtnLg, width: "fit-content" }}>
             {saving ? "Saving…" : "Save"}
           </button>
         </form>
       )}
 
       {loadingHistory ? (
-        <p style={{ color: "#9aa3af", fontSize: 13.5 }}>Loading history…</p>
+        <p style={{ color: COLORS.muted, fontSize: FONT.md }}>Loading history…</p>
       ) : (
         <>
           {outreach.length === 0 && !showForm && (
-            <p style={{ color: "#9aa3af", fontSize: 13.5 }}>No outreach logged yet for this lead.</p>
+            <p style={{ color: COLORS.muted, fontSize: FONT.md }}>No outreach logged yet for this lead.</p>
           )}
           {outreach.map((o) => (
-            <div key={o.id} style={{ borderBottom: "1px solid #eef0f3", padding: "10px 0" }}>
+            <div key={o.id} style={{ ...rowDivider, padding: "10px 0" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <span style={{ ...channelBadge, background: CHANNEL_COLORS[o.channel] || "#6b7280" }}>{o.channel}</span>
-                <span style={{ fontSize: 12, color: "#9aa3af" }}>{(o.step || "first").replace(/_/g, " ")}</span>
-                <span style={{ fontSize: 11, fontWeight: 700, color: o.status === "replied" ? "#0f766e" : o.status === "draft" ? "#d9822b" : "#1f8a70" }}>
+                <span style={channelBadge(o.channel)}>{o.channel}</span>
+                <span style={{ fontSize: FONT.sm, color: COLORS.muted }}>{(o.step || "first").replace(/_/g, " ")}</span>
+                <span style={{ fontSize: FONT.xs, fontWeight: 700, color: o.status === "replied" ? STATUS_COLORS.replied : o.status === "draft" ? COLORS.warning : STATUS_COLORS.outreach_sent }}>
                   {o.status?.toUpperCase()}
                 </span>
-                {o.sent_at && <span style={{ fontSize: 12, color: "#9aa3af" }}>{new Date(o.sent_at).toLocaleDateString()}</span>}
+                {o.sent_at && <span style={{ fontSize: FONT.sm, color: COLORS.muted }}>{new Date(o.sent_at).toLocaleDateString()}</span>}
                 <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
                   {o.status !== "replied" && (
-                    <button onClick={() => markReplied(o.id)} disabled={busyId === o.id} style={linkBtnSmall}>Mark replied</button>
+                    <button onClick={() => markReplied(o.id)} disabled={busyId === o.id} style={smallBtn}>Mark replied</button>
                   )}
-                  <button onClick={() => removeTouch(o.id)} disabled={busyId === o.id} style={{ ...linkBtnSmall, color: "#b3261e" }}>Delete</button>
+                  <button onClick={() => removeTouch(o.id)} disabled={busyId === o.id} style={smallDangerBtn}>Delete</button>
                 </div>
               </div>
-              {o.subject && <div style={{ fontWeight: 600, fontSize: 13.5, marginTop: 4 }}>{o.subject}</div>}
-              <div style={{ fontSize: 13, color: "#374151", marginTop: 4, whiteSpace: "pre-wrap" }}>{o.body}</div>
+              {o.subject && <div style={{ fontWeight: 600, fontSize: FONT.md, marginTop: 4 }}>{o.subject}</div>}
+              <div style={{ fontSize: FONT.sm, color: COLORS.body, marginTop: 4, whiteSpace: "pre-wrap" }}>{o.body}</div>
             </div>
           ))}
         </>
@@ -554,12 +580,29 @@ function LeadPanel({ lead, onChange }) {
   );
 }
 
-function DraftBlock({ title, onUse, children, last }) {
+function DraftBlock({ title, onUse, copyText, children, last }) {
+  const [copyState, setCopyState] = useState(null); // null | "copied" | "failed"
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(copyText || "");
+      setCopyState("copied");
+    } catch {
+      setCopyState("failed");
+    }
+    setTimeout(() => setCopyState(null), 1500);
+  }
+
   return (
-    <div style={{ borderBottom: last ? "none" : "1px solid #e6e9ee", padding: "10px 0" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontSize: 12, color: "#9aa3af", fontWeight: 700, textTransform: "uppercase" }}>{title}</span>
-        <button onClick={onUse} style={linkBtnSmall}>Use this →</button>
+    <div style={{ borderBottom: last ? "none" : `1px solid ${COLORS.border}`, padding: "10px 0" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 4 }}>
+        <span style={{ fontSize: FONT.xs, color: COLORS.muted, fontWeight: 700, textTransform: "uppercase" }}>{title}</span>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button type="button" onClick={copy} style={copyState === "failed" ? smallDangerBtn : smallBtn}>
+            {copyState === "copied" ? "Copied!" : copyState === "failed" ? "Copy failed" : "Copy"}
+          </button>
+          <button type="button" onClick={onUse} style={smallBtn}>Use this →</button>
+        </div>
       </div>
       {children}
     </div>
@@ -568,25 +611,12 @@ function DraftBlock({ title, onUse, children, last }) {
 
 function Tile({ n, label, color }) {
   return (
-    <div style={{ background: "#fff", border: "1px solid #e6e9ee", borderRadius: 10, padding: "10px 16px", minWidth: 100 }}>
-      <div style={{ fontSize: 22, fontWeight: 700, color }}>{n}</div>
-      <div style={{ fontSize: 12, color: "#5b6673" }}>{label}</div>
+    <div style={tileStyle}>
+      <div style={{ fontSize: FONT.xxl, fontWeight: 700, color }}>{n}</div>
+      <div style={{ fontSize: FONT.sm, color: COLORS.textSecondary }}>{label}</div>
     </div>
   );
 }
 
-const th = { padding: "8px 10px", borderBottom: "1px solid #e6e9ee" };
-const td = { padding: "10px 10px", verticalAlign: "top" };
-const inputStyle = { border: "1px solid #cbd3dc", borderRadius: 6, padding: "6px 8px", fontSize: 12.5 };
-const selectStyle = { ...inputStyle, width: "auto" };
-const channelBadge = { fontSize: 10.5, fontWeight: 700, color: "#fff", borderRadius: 4, padding: "2px 6px", display: "inline-block", marginBottom: 2 };
-const statusBadge = { fontSize: 11.5, fontWeight: 600, borderRadius: 5, padding: "3px 8px", textTransform: "capitalize" };
-const outcomeBadge = { fontSize: 12, fontWeight: 700, color: "#fff", borderRadius: 5, padding: "3px 9px", textTransform: "capitalize" };
-const outcomeBtn = { background: "#fff", border: "1px solid #cbd3dc", color: "#374151", borderRadius: 6, padding: "6px 10px", fontSize: 12.5, cursor: "pointer" };
-const linkBtnSmall = { background: "none", border: "none", color: "#2f5d8a", fontSize: 12, cursor: "pointer", padding: 0 };
-const primaryBtn = { background: "#2f5d8a", color: "#fff", border: "none", borderRadius: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer" };
-const openBtn = {
-  display: "inline-block", fontSize: 12, fontWeight: 600, color: "#2f5d8a", background: "#fff", border: "1px solid #cbd3dc",
-  borderRadius: 6, padding: "6px 10px", textDecoration: "none", whiteSpace: "nowrap", cursor: "pointer",
-};
-const openBtnActive = { ...openBtn, background: "#2f5d8a", color: "#fff", borderColor: "#2f5d8a" };
+const panelStyle = { background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.md };
+const draftText = { whiteSpace: "pre-wrap", fontSize: FONT.sm };
