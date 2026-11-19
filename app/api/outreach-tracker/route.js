@@ -4,6 +4,12 @@ import { supabaseAdmin } from "../../../lib/supabase.js";
 // history and current next_action/next_action_date -- the data behind the
 // /outreach tracker page. Small-scale (a few hundred leads at most), so
 // doing the join in JS rather than a Postgres function is fine.
+//
+// No dynamic segment and no request-specific API used here, so Next.js
+// would otherwise statically render this GET once at build time and keep
+// serving that stale snapshot forever. Force it to run fresh every request.
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const db = supabaseAdmin();
 
