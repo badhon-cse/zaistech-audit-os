@@ -12,6 +12,17 @@ export async function PATCH(request, { params }) {
 
   const { data, error } = await db.from("outreach").update(patch).eq("id", params.id).select().single();
   if (error) return Response.json({ error: error.message }, { status: 500 });
+
+  // A reply means no follow-up is due anymore -- clear it from the tracker,
+  // and bump the lead's own status to replied so it shows up that way too
+  // (unless it's already further along, e.g. won).
+  if (body.status === "replied" && data?.lead_id) {
+    const { data: lead } = await db.from("leads").select("status").eq("id", data.lead_id).single();
+    const leadPatch = { next_action: null, next_action_date: null, updated_at: new Date().toISOString() };
+    if (lead && !["won", "lost"].includes(lead.status)) leadPatch.status = "replied";
+    await db.from("leads").update(leadPatch).eq("id", data.lead_id);
+  }
+
   return Response.json({ outreach: data });
 }
 

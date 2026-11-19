@@ -451,27 +451,6 @@ function OutreachSection({ leadId, outreach, onChange }) {
 }
 
 function FindingRow({ f, metric, onZoom }) {
-  const [demoHtml, setDemoHtml] = useState(f.demo_html || null);
-  const [demoLoading, setDemoLoading] = useState(false);
-  const [demoOpen, setDemoOpen] = useState(false);
-  const [demoError, setDemoError] = useState(null);
-
-  async function generateDemo() {
-    setDemoLoading(true);
-    setDemoError(null);
-    try {
-      const res = await fetch(`/api/findings/${f.id}/demo`, { method: "POST" });
-      const json = await res.json();
-      if (json.error) throw new Error(json.error);
-      setDemoHtml(json.demo_html);
-      setDemoOpen(true);
-    } catch (e) {
-      setDemoError(e.message);
-    } finally {
-      setDemoLoading(false);
-    }
-  }
-
   // A crop is only shown when a real Lighthouse-flagged element matched this
   // finding (see matchCropRect in lib/audit.js) -- pure CSS crop of the
   // full-page screenshot, no image processing needed.
@@ -510,33 +489,8 @@ function FindingRow({ f, metric, onZoom }) {
           <div style={{ fontSize: 13, color: "#5b6673", marginTop: 3 }}>Why it costs money: {f.why}</div>
           <div style={{ fontSize: 13, color: "#5b6673" }}>Fix: {f.fix}</div>
           <div style={{ fontSize: 13, fontWeight: 600, color: "#2f5d8a", marginTop: 2 }}>Service: {f.service}</div>
-
-          <div style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            {!demoHtml && (
-              <button onClick={generateDemo} disabled={demoLoading} style={demoBtn}>
-                {demoLoading ? "Generating demo…" : "✨ Generate Demo"}
-              </button>
-            )}
-            {demoHtml && (
-              <>
-                <button onClick={() => setDemoOpen((o) => !o)} style={demoBtnSecondary}>
-                  {demoOpen ? "Hide demo" : "▸ View demo"}
-                </button>
-                <button onClick={generateDemo} disabled={demoLoading} style={{ ...demoBtnSecondary, opacity: 0.7 }}>
-                  {demoLoading ? "Regenerating…" : "Regenerate"}
-                </button>
-              </>
-            )}
-            {demoError && <span style={{ color: "#b42318", fontSize: 12 }}>Demo failed: {demoError}</span>}
-          </div>
         </div>
       </div>
-
-      {demoOpen && demoHtml && (
-        <div style={{ marginTop: 10, border: "1px solid #e6e9ee", borderRadius: 8, overflow: "hidden" }}>
-          <iframe srcDoc={demoHtml} sandbox="" title="Demo mockup" style={{ width: "100%", height: 440, border: "none", display: "block" }} />
-        </div>
-      )}
     </div>
   );
 }
@@ -707,7 +661,5 @@ const inputStyle = { border: "1px solid #cbd3dc", borderRadius: 6, padding: "8px
 const selectStyle = { ...inputStyle, width: "auto" };
 const channelBadge = { fontSize: 11, fontWeight: 700, color: "#fff", borderRadius: 5, padding: "3px 8px" };
 const linkBtnSmall = { background: "none", border: "none", color: "#2f5d8a", fontSize: 12, cursor: "pointer", padding: 0 };
-const demoBtn = { background: "#7c3aed", color: "#fff", border: "none", borderRadius: 6, padding: "5px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" };
-const demoBtnSecondary = { background: "#f3eefe", color: "#6d28d9", border: "1px solid #e5d9fc", borderRadius: 6, padding: "5px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" };
 const tag = { background: "#eef2f7", color: "#5b6673", fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", borderRadius: 4, padding: "2px 6px" };
 const lightboxOverlay = { position: "fixed", inset: 0, background: "rgba(16,20,26,.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, cursor: "zoom-out" };

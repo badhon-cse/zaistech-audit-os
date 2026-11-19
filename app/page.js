@@ -86,6 +86,9 @@ export default function Pipeline() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <h2 style={{ margin: 0, fontSize: 16 }}>Pipeline</h2>
         <div style={{ display: "flex", gap: 8 }}>
+          <a href="/outreach" style={{ ...primaryBtn, textDecoration: "none", display: "inline-block" }}>
+            Outreach tracker
+          </a>
           <a href="/rulebook" style={{ ...primaryBtn, background: "#fff", color: "#2f5d8a", border: "1px solid #2f5d8a", textDecoration: "none", display: "inline-block" }}>
             Rulebook self-improvement
           </a>

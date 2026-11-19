@@ -34,15 +34,22 @@ export async function GET(_request, { params }) {
   return Response.json({ lead, audits, latestAudit: latest, findings, strengths, metrics, inboxChecks, outreach: outreach || [] });
 }
 
+const NO_FOLLOWUP_STATUSES = ["replied", "won", "lost"];
+
 export async function PATCH(request, { params }) {
   const db = supabaseAdmin();
   const body = await request.json();
-  const { data, error } = await db
-    .from("leads")
-    .update({ ...body, updated_at: new Date().toISOString() })
-    .eq("id", params.id)
-    .select()
-    .single();
+  const patch = { ...body, updated_at: new Date().toISOString() };
+
+  // Setting the outcome to replied/won/lost means no follow-up is due
+  // anymore -- clear it from the tracker unless the caller explicitly set
+  // next_action themselves in this same request.
+  if (body.status && NO_FOLLOWUP_STATUSES.includes(body.status) && body.next_action_date === undefined) {
+    patch.next_action = null;
+    patch.next_action_date = null;
+  }
+
+  const { data, error } = await db.from("leads").update(patch).eq("id", params.id).select().single();
   if (error) return Response.json({ error: error.message }, { status: 500 });
   return Response.json({ lead: data });
 }
