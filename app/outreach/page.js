@@ -92,6 +92,10 @@ export default function OutreachTracker() {
         <Tile n={notContacted.length} label="Not contacted yet" color="#9aa5b1" />
       </div>
 
+      <p style={{ color: "#9aa3af", fontSize: 12.5, marginTop: -8, marginBottom: 14 }}>
+        This page is the overview. To draft or log an actual message, click "Open lead →" to go to that lead's page.
+      </p>
+
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5 }}>
         <thead>
           <tr style={{ textAlign: "left", color: "#9aa3af", fontSize: 11, textTransform: "uppercase" }}>
@@ -101,6 +105,7 @@ export default function OutreachTracker() {
             <th style={th}>Status</th>
             <th style={th}>Next action</th>
             <th style={th}>Due</th>
+            <th style={th}></th>
           </tr>
         </thead>
         <tbody>
@@ -118,15 +123,16 @@ export default function OutreachTracker() {
               {notContacted.map((lead) => (
                 <tr key={lead.id} style={{ borderBottom: "1px solid #f0f2f5" }}>
                   <td style={td}>
-                    <a href={`/lead/${lead.id}`} style={{ color: "#2f5d8a", textDecoration: "none", fontWeight: 600 }}>
-                      {lead.company}
-                    </a>
+                    <div style={{ fontWeight: 600 }}>{lead.company}</div>
                     <div style={{ fontSize: 12, color: "#9aa3af" }}>{lead.domain}</div>
                   </td>
-                  <td style={td} colSpan={4}>
+                  <td style={td} colSpan={3}>
                     <span style={{ ...statusBadge, background: (STATUS_COLORS[lead.status] || "#9aa5b1") + "22", color: STATUS_COLORS[lead.status] || "#9aa5b1" }}>
                       {lead.status.replace("_", " ")}
                     </span>
+                  </td>
+                  <td style={td}>
+                    <a href={`/lead/${lead.id}`} style={openBtn}>Open lead →</a>
                   </td>
                 </tr>
               ))}
@@ -147,9 +153,7 @@ function TrackerRow({ lead, onSave, busy }) {
   return (
     <tr style={{ borderBottom: "1px solid #f0f2f5" }}>
       <td style={td}>
-        <a href={`/lead/${lead.id}`} style={{ color: "#2f5d8a", textDecoration: "none", fontWeight: 600 }}>
-          {lead.company}
-        </a>
+        <div style={{ fontWeight: 600 }}>{lead.company}</div>
         <div style={{ fontSize: 12, color: "#9aa3af" }}>
           {[lead.first_name, lead.last_name].filter(Boolean).join(" ")}{lead.title ? ` — ${lead.title}` : ""}
         </div>
@@ -200,6 +204,9 @@ function TrackerRow({ lead, onSave, busy }) {
           <div style={{ fontSize: 11, fontWeight: 700, color: us.fg, marginTop: 3 }}>{us.label}</div>
         )}
       </td>
+      <td style={td}>
+        <a href={`/lead/${lead.id}`} style={openBtn}>Open lead →</a>
+      </td>
     </tr>
   );
 }
@@ -218,3 +225,7 @@ const td = { padding: "10px 10px", verticalAlign: "top" };
 const inputStyle = { border: "1px solid #cbd3dc", borderRadius: 6, padding: "6px 8px", fontSize: 12.5 };
 const channelBadge = { fontSize: 10.5, fontWeight: 700, color: "#fff", borderRadius: 4, padding: "2px 6px", display: "inline-block", marginBottom: 2 };
 const statusBadge = { fontSize: 11.5, fontWeight: 600, borderRadius: 5, padding: "3px 8px", textTransform: "capitalize" };
+const openBtn = {
+  display: "inline-block", fontSize: 12, fontWeight: 600, color: "#fff", background: "#2f5d8a",
+  borderRadius: 6, padding: "6px 10px", textDecoration: "none", whiteSpace: "nowrap",
+};
