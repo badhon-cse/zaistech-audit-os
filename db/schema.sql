@@ -20,6 +20,9 @@ create table if not exists leads (
   linkedin text,
   instagram text,
   sheet_row_id text,
+  timezone text, -- IANA zone id (e.g. "America/Los_Angeles"), set by hand on the
+                 -- outreach tracker -- drives the "best time to send" indicator
+                 -- (see lib/sendTiming.js). Null until the operator sets it.
   status text not null default 'new', -- new | auditing | needs_review | audited | demo_ready | outreach_sent | replied | won | lost | failed
   owner text,
   next_action text,
@@ -202,3 +205,10 @@ from leads
 where next_action ~ '\([^()]+\)\s*$'
   and status not in ('replied', 'won', 'lost')
 on conflict (lead_id, channel) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- MIGRATION (added after the initial schema): lead timezone, for "best time
+-- to send" on the outreach tracker.
+-- Run this block once in the Supabase SQL editor on an existing database
+-- (safe to re-run: "if not exists").
+alter table if exists leads add column if not exists timezone text;

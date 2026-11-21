@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../../../../lib/supabase.js";
 import { clearLeadFollowups } from "../../../../lib/followups.js";
+import { isValidTimezone } from "../../../../lib/sendTiming.js";
 
 export async function GET(_request, { params }) {
   const db = supabaseAdmin();
@@ -46,7 +47,7 @@ const REVIEW_REMINDER = "Review AI findings and approve";
 // is ignored (so a client can't overwrite domain, created_at, id, etc).
 // These are the fields the UI actually sends (app/outreach/page.js and
 // app/lead/[id]/page.js).
-const PATCHABLE_FIELDS = ["status", "next_action", "next_action_date"];
+const PATCHABLE_FIELDS = ["status", "next_action", "next_action_date", "timezone"];
 const VALID_STATUSES = ["new", "auditing", "needs_review", "audited", "demo_ready", "outreach_sent", "replied", "won", "lost", "failed"];
 
 export async function PATCH(request, { params }) {
@@ -76,6 +77,9 @@ export async function PATCH(request, { params }) {
   }
   if (patch.next_action_date !== undefined && patch.next_action_date !== null && !/^\d{4}-\d{2}-\d{2}$/.test(patch.next_action_date)) {
     return Response.json({ error: "next_action_date must be YYYY-MM-DD or null" }, { status: 400 });
+  }
+  if (patch.timezone !== undefined && patch.timezone !== null && !isValidTimezone(patch.timezone)) {
+    return Response.json({ error: "timezone must be a valid IANA zone id (e.g. America/Los_Angeles) or null" }, { status: 400 });
   }
   patch.updated_at = new Date().toISOString();
 

@@ -6,6 +6,7 @@ import {
   primaryBtnLg, secondaryBtn, outlineBtn, dangerBtn, smallBtn, smallDangerBtn, toggleBtn, toggleBtnActive, linkBtn,
 } from "../../lib/ui.js";
 import { urgency, URGENCY_STYLE, primaryFollowup, compareByDue } from "../../lib/urgency.js";
+import { COMMON_TIMEZONES, getSendTiming, timezoneLabel } from "../../lib/sendTiming.js";
 
 // Due-date / urgency helpers (todayISO, urgency, URGENCY_STYLE,
 // primaryFollowup, compareByDue) live in lib/urgency.js, shared with /today.
@@ -29,6 +30,15 @@ export default function OutreachTracker() {
   const [expandedId, setExpandedId] = useState(null);
 
   const [loadError, setLoadError] = useState(null);
+
+  // Drives the "best time to send" badges (lib/sendTiming.js) -- ticks once a
+  // minute so a row sitting open on the page catches the moment a lead's
+  // business hours start, instead of needing a reload.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   async function load() {
     setLoading(true);
@@ -85,6 +95,21 @@ export default function OutreachTracker() {
     }
   }
 
+  async function saveTimezone(leadId, timezone) {
+    setSavingId(leadId);
+    try {
+      const res = await fetch(`/api/leads/${leadId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ timezone: timezone || null }),
+      });
+      if (!res.ok) alert("Could not save timezone: " + (await errorMessage(res)));
+      await load();
+    } finally {
+      setSavingId(null);
+    }
+  }
+
   if (loading) return <p style={{ color: COLORS.textSecondary }}>Loading…</p>;
 
   const contacted = (leads || []).filter((l) => l.touchCount > 0);
@@ -125,6 +150,7 @@ export default function OutreachTracker() {
         <thead>
           <tr style={{ color: COLORS.muted, fontSize: FONT.xs, textTransform: "uppercase" }}>
             <th style={th}>Lead</th>
+            <th style={th}>Best time to send</th>
             <th style={th}>Channels</th>
             <th style={th}>Last touch</th>
             <th style={th}>Status</th>
@@ -139,10 +165,12 @@ export default function OutreachTracker() {
               key={lead.id}
               lead={lead}
               onSave={saveFollowup}
+              onSaveTimezone={saveTimezone}
               busy={savingId === lead.id}
               expanded={expandedId === lead.id}
               onToggle={() => toggle(lead.id)}
               onPanelChange={onPanelChange}
+              now={now}
             />
           ))}
         </tbody>
@@ -157,9 +185,12 @@ export default function OutreachTracker() {
                 <NotContactedRow
                   key={lead.id}
                   lead={lead}
+                  onSaveTimezone={saveTimezone}
+                  busy={savingId === lead.id}
                   expanded={expandedId === lead.id}
                   onToggle={() => toggle(lead.id)}
                   onPanelChange={onPanelChange}
+                  now={now}
                 />
               ))}
             </tbody>
@@ -170,7 +201,52 @@ export default function OutreachTracker() {
   );
 }
 
-function TrackerRow({ lead, onSave, busy, expanded, onToggle, onPanelChange }) {
+// Timezone picker + live "good to send now?" badge for one lead. Shown on
+// every row (contacted and not-yet-contacted alike) since the timing matters
+// just as much for the first touch as for a follow-up. `now` ticks once a
+// minute from the parent so an open page stays accurate without a reload.
+function SendTimingCell({ lead, onSaveTimezone, busy, now }) {
+  const fid = useId();
+  const timing = getSendTiming(lead.timezone, now);
+  return (
+    <div style={{ minWidth: 150 }}>
+      <label htmlFor={`${fid}-tz`} style={labelStyle}>Their timezone</label>
+      <select
+        id={`${fid}-tz`}
+        value={lead.timezone || ""}
+        onChange={(e) => onSaveTimezone(lead.id, e.target.value || null)}
+        style={{ ...selectStyle, width: 150 }}
+        disabled={busy}
+      >
+        <option value="">Not set</option>
+        {COMMON_TIMEZONES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+        {lead.timezone && !COMMON_TIMEZONES.some((t) => t.value === lead.timezone) && (
+          <option value={lead.timezone}>{timezoneLabel(lead.timezone)}</option>
+        )}
+      </select>
+      {timing.available && (
+        <div style={{ fontSize: FONT.xs, marginTop: 4, maxWidth: 190 }}>
+          {timing.good ? (
+            <span style={{ color: COLORS.success, fontWeight: 700 }}>● Good time now ({timing.nowLabel} their time)</span>
+          ) : (
+            <>
+              <span style={{ color: COLORS.warning, fontWeight: 700 }}>● Not now</span>
+              <span style={{ color: COLORS.muted }}> — it's {timing.nowLabel} for them</span>
+              {timing.nextLabel && (
+                <div style={{ color: COLORS.muted, marginTop: 2 }}>
+                  Next good window: {timing.nextLabel} their time
+                  <br />(≈ {timing.nextLabelBD} your time, in {timing.hoursUntil}h)
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TrackerRow({ lead, onSave, onSaveTimezone, busy, expanded, onToggle, onPanelChange, now }) {
   // The row shows ONE primary follow-up: the earliest per-channel reminder,
   // or the lead-level next_action/_date when there are none (see
   // primaryFollowup in lib/urgency.js). Other channels' reminders are
@@ -199,6 +275,9 @@ function TrackerRow({ lead, onSave, busy, expanded, onToggle, onPanelChange }) {
           <div style={{ fontSize: FONT.sm, color: COLORS.muted }}>
             {[lead.first_name, lead.last_name].filter(Boolean).join(" ")}{lead.title ? ` — ${lead.title}` : ""}
           </div>
+        </td>
+        <td style={td}>
+          <SendTimingCell lead={lead} onSaveTimezone={onSaveTimezone} busy={busy} now={now} />
         </td>
         <td style={td}>
           {lead.channelsUsed.map((c) => (
@@ -281,7 +360,7 @@ function TrackerRow({ lead, onSave, busy, expanded, onToggle, onPanelChange }) {
       </tr>
       {expanded && (
         <tr style={rowDivider}>
-          <td style={{ ...td, background: COLORS.panelBg }} colSpan={7}>
+          <td style={{ ...td, background: COLORS.panelBg }} colSpan={8}>
             <LeadPanel lead={lead} onChange={onPanelChange} />
           </td>
         </tr>
@@ -290,7 +369,7 @@ function TrackerRow({ lead, onSave, busy, expanded, onToggle, onPanelChange }) {
   );
 }
 
-function NotContactedRow({ lead, expanded, onToggle, onPanelChange }) {
+function NotContactedRow({ lead, onSaveTimezone, busy, expanded, onToggle, onPanelChange, now }) {
   return (
     <>
       <tr style={expanded ? undefined : rowDivider}>
@@ -298,7 +377,10 @@ function NotContactedRow({ lead, expanded, onToggle, onPanelChange }) {
           <div style={{ fontWeight: 600 }}>{lead.company}</div>
           <div style={{ fontSize: FONT.sm, color: COLORS.muted }}>{lead.domain}</div>
         </td>
-        <td style={td} colSpan={3}>
+        <td style={td}>
+          <SendTimingCell lead={lead} onSaveTimezone={onSaveTimezone} busy={busy} now={now} />
+        </td>
+        <td style={td} colSpan={2}>
           <span style={statusBadge(lead.status)}>
             {lead.status.replace("_", " ")}
           </span>
