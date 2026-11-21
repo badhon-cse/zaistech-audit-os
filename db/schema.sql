@@ -16,14 +16,19 @@ create table if not exists leads (
   industry text,
   city text,
   state text,
-  country text,
+  country text, -- best-guess company country, auto-filled by the audit (lib/geoDetect.js,
+                -- via lib/audit.js) from signals on the homepage. Never overwritten once set
+                -- by hand on the outreach tracker.
   linkedin text,
   instagram text,
   sheet_row_id text,
-  timezone text, -- IANA zone id (e.g. "America/Los_Angeles"), set by hand on the
-                 -- outreach tracker -- drives the "best time to send" indicator
-                 -- (see lib/sendTiming.js). Null until the operator sets it.
-  status text not null default 'new', -- new | auditing | needs_review | audited | demo_ready | outreach_sent | replied | won | lost | failed
+  timezone text, -- IANA zone id (e.g. "America/Los_Angeles") -- same auto-fill-then-never-
+                 -- overwrite rule as country above. Drives the "best time to send"
+                 -- indicator (see lib/sendTiming.js). Null until known.
+  status text not null default 'new', -- new | auditing | audited | demo_ready | outreach_sent | replied | won | lost | failed
+                                       -- ("needs_review" is retired -- an audit now goes straight to
+                                       -- "audited"; kept as a valid/forwardable value in code only so
+                                       -- any lead still sitting in it from before isn't stuck)
   owner text,
   next_action text,
   next_action_date date,

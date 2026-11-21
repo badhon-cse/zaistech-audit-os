@@ -2,8 +2,8 @@
 // built for an external scheduled task to turn into a daily reminder message
 // (email/Slack/WhatsApp/etc). Same buckets and logic as the /today page
 // (bucketLeadsForToday in lib/urgency.js, over lib/outreachData.js rows):
-// overdue follow-ups, follow-ups due today, leads waiting in needs_review,
-// and approved-but-not-contacted leads.
+// overdue follow-ups, follow-ups due today, and approved-but-not-contacted
+// leads.
 //
 //   GET /api/today-summary              -> JSON { date, timeZone, counts, text, buckets }
 //   GET /api/today-summary?format=text  -> just the plain-text digest
@@ -52,7 +52,6 @@ export async function GET(request) {
   const buckets = {
     overdue: b.overdue.map(item),
     dueToday: b.dueToday.map(item),
-    needsReview: b.needsReview.map(item),
     notContacted: b.notContacted.map(item),
   };
   const counts = Object.fromEntries(Object.entries(buckets).map(([k, v]) => [k, v.length]));
@@ -67,16 +66,15 @@ export async function GET(request) {
   const followupLine = (x) =>
     [x.company, x.next_action, x.next_action_date && `due ${x.next_action_date}`].filter(Boolean).join(" — ");
 
-  const total = counts.overdue + counts.dueToday + counts.needsReview + counts.notContacted;
+  const total = counts.overdue + counts.dueToday + counts.notContacted;
   const headline = total
-    ? `${counts.overdue} overdue, ${counts.dueToday} due today, ${counts.needsReview} need review, ${counts.notContacted} approved but not contacted`
+    ? `${counts.overdue} overdue, ${counts.dueToday} due today, ${counts.notContacted} approved but not contacted`
     : "Nothing due today.";
   const text = [
     `Zaistech Audit OS — ${today}`,
     headline,
     section("Overdue follow-ups", buckets.overdue, followupLine),
     section("Due today", buckets.dueToday, followupLine),
-    section("Needs review (audit findings waiting for approval)", buckets.needsReview, (x) => x.company),
     section("Approved, not contacted yet", buckets.notContacted, (x) => x.company),
     total ? `Open: ${origin}/today` : null,
   ]

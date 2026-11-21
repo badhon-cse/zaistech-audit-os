@@ -210,7 +210,14 @@ function SendTimingCell({ lead, onSaveTimezone, busy, now }) {
   const timing = getSendTiming(lead.timezone, now);
   return (
     <div style={{ minWidth: 150 }}>
-      <label htmlFor={`${fid}-tz`} style={labelStyle}>Their timezone</label>
+      {lead.country && (
+        <div style={{ fontSize: FONT.xs, color: COLORS.body, fontWeight: 600, marginBottom: 2 }}>
+          📍 {lead.country}
+        </div>
+      )}
+      <label htmlFor={`${fid}-tz`} style={labelStyle}>
+        {lead.timezone ? "Their timezone (auto-detected — fix if wrong)" : "Their timezone"}
+      </label>
       <select
         id={`${fid}-tz`}
         value={lead.timezone || ""}

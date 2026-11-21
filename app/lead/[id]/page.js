@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import {
-  COLORS, FONT, RADIUS, cardStyle as baseCard, tagStyle as tag, primaryBtnLg as primaryBtn, linkBtn, backLink,
+  COLORS, FONT, RADIUS, cardStyle as baseCard, tagStyle as tag, linkBtn, backLink,
   smallBtn, smallDangerBtn, disabledStyle,
 } from "../../../lib/ui.js";
 
@@ -27,19 +27,6 @@ export default function LeadDetail({ params }) {
   useEffect(() => {
     load();
   }, [id]);
-
-  async function approve() {
-    const res = await fetch(`/api/leads/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "audited" }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      alert("Could not approve audit: " + (err.error || res.statusText));
-    }
-    load();
-  }
 
   // Pull a finding from outreach (included=false) or put it back. A pulled
   // finding is skipped by the AI draft generator and counts as a "weak
@@ -237,11 +224,6 @@ export default function LeadDetail({ params }) {
             </section>
           )}
 
-          {lead.status === "needs_review" && (
-            <button onClick={approve} style={primaryBtn}>
-              Approve audit
-            </button>
-          )}
         </>
       )}
     </div>
