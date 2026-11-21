@@ -45,9 +45,12 @@ const REVIEW_REMINDER = "Review AI findings and approve";
 
 // Only these fields may be changed via PATCH -- everything else in the body
 // is ignored (so a client can't overwrite domain, created_at, id, etc).
-// These are the fields the UI actually sends (app/outreach/page.js and
-// app/lead/[id]/page.js).
-const PATCHABLE_FIELDS = ["status", "next_action", "next_action_date", "timezone"];
+// Most of these are the fields the UI actually sends (app/outreach/page.js
+// and app/lead/[id]/page.js); country is included too so a wrong auto-detected
+// guess (lib/geoDetect.js, set automatically by lib/audit.js) can be corrected
+// by hand the same way timezone already can be, even though no UI control for
+// it exists yet.
+const PATCHABLE_FIELDS = ["status", "next_action", "next_action_date", "timezone", "country"];
 const VALID_STATUSES = ["new", "auditing", "needs_review", "audited", "demo_ready", "outreach_sent", "replied", "won", "lost", "failed"];
 
 export async function PATCH(request, { params }) {
